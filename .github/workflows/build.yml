@@ -12,303 +12,33 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Download project
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Java 17
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Locate Android SDK tools
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "Не найден sdkmanager в $SDK_ROOT/cmdline-tools"
-            exit 1
-          fi
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
-          echo "Найден sdkmanager: $SDKMANAGER"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platforms;android-35"
+          sdkmanager --install "build-tools;35.0.0"
 
-      - name: Install SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" --install "platforms;android-35"
-          "$SDKMANAGER" --install "build-tools;35.0.0"
-
-      - name: Install Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Create Android project files
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p app/src/main/java/com/electricpro/app
-          mkdir -p app/src/main/res/values
-
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.name = "ElectricPRO"
-          include(":app")
-          EOF
-
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF
-
-          cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
-
-          android {
-              namespace 'com.electricpro.app'
-              compileSdk 35
-
-              defaultConfig {
-                  applicationId 'com.electricpro.app'
-                  minSdk 23
-                  targetSdk 35
-                  versionCode 1
-                  versionName '1.0'
-              }
-          }
-          EOF
-
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
-                  android:label="Электрик PRO"
-                  android:allowBackup="true">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar" />
-          </resources>
-          EOF
-
-          cat > app/src/main/java/com/electricpro/app/MainActivity.java <<'EOF'
-          package com.electricpro.app;
-
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.graphics.Color;
-          import android.graphics.Typeface;
-          import android.view.Gravity;
-          import android.widget.Button;
-          import android.widget.EditText;
-          import android.widget.LinearLayout;
-          import android.widget.ScrollView;
-          import android.widget.TextView;
-
-          import java.util.Locale;
-
-          public class MainActivity extends Activity {
-              private final int navy = Color.rgb(11, 23, 36);
-              private final int yellow = Color.rgb(255, 211, 78);
-              private final int white = Color.WHITE;
-              private LinearLayout content;
-
-              @Override
-              public void onCreate(Bundle state) {
-                  super.onCreate(state);
-                  getWindow().setStatusBarColor(navy);
-                  getWindow().setNavigationBarColor(navy);
-                  showHome();
-              }
-
-              private TextView makeText(String value, int size) {
-                  TextView view = new TextView(this);
-                  view.setText(value);
-                  view.setTextSize(size);
-                  view.setTextColor(white);
-                  view.setGravity(Gravity.CENTER);
-                  view.setPadding(12, 12, 12, 12);
-                  return view;
-              }
-
-              private void base(String title) {
-                  ScrollView scroll = new ScrollView(this);
-                  content = new LinearLayout(this);
-                  content.setOrientation(LinearLayout.VERTICAL);
-                  content.setPadding(20, 20, 20, 24);
-                  content.setBackgroundColor(navy);
-                  scroll.setBackgroundColor(navy);
-                  scroll.addView(content);
-                  setContentView(scroll);
-
-                  TextView heading = makeText("⚡ ЭЛЕКТРИК PRO", 26);
-                  heading.setTextColor(yellow);
-                  heading.setTypeface(null, Typeface.BOLD);
-                  content.addView(heading);
-                  content.addView(makeText(title, 18));
-              }
-
-              private void addButton(String title, Runnable action) {
-                  Button button = new Button(this);
-                  button.setText(title);
-                  button.setTextColor(navy);
-                  button.setTextSize(16);
-                  button.setAllCaps(false);
-                  button.setBackgroundTintList(
-                      android.content.res.ColorStateList.valueOf(yellow));
-
-                  LinearLayout.LayoutParams params =
-                      new LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT);
-                  params.setMargins(0, 8, 0, 8);
-                  content.addView(button, params);
-                  button.setOnClickListener(view -> action.run());
-              }
-
-              private void showHome() {
-                  base("Инструменты профессионального электрика");
-                  addButton("🧮 Электрические калькуляторы", this::showCalculators);
-                  addButton("📚 Справочник электрика", this::showReference);
-                  addButton("📋 Смета и материалы", this::showEstimate);
-                  addButton("🏗 Мои объекты", this::showProjects);
-                  content.addView(makeText(
-                      "Работайте безопасно. Проверяйте расчёты по действующим "
-                      + "нормам и условиям конкретного объекта.", 13));
-              }
-
-              private void showCalculators() {
-                  base("Электрические калькуляторы");
-                  addButton("Мощность: P = U × I", () ->
-                      inputCalculator("Мощность (Вт)",
-                          "Напряжение U (В)", "Ток I (А)", 0));
-                  addButton("Ток: I = P / U", () ->
-                      inputCalculator("Ток (А)",
-                          "Мощность P (Вт)", "Напряжение U (В)", 1));
-                  addButton("Сопротивление: R = U / I", () ->
-                      inputCalculator("Сопротивление (Ом)",
-                          "Напряжение U (В)", "Ток I (А)", 2));
-                  addButton("← На главную", this::showHome);
-              }
-
-              private void inputCalculator(
-                      String title, String firstHint, String secondHint, int mode) {
-                  EditText first = new EditText(this);
-                  EditText second = new EditText(this);
-                  first.setSingleLine(true);
-                  second.setSingleLine(true);
-                  first.setHint(firstHint);
-                  second.setHint(secondHint);
-                  first.setInputType(8194);
-                  second.setInputType(8194);
-                  first.setTextColor(white);
-                  second.setTextColor(white);
-                  first.setHintTextColor(0xFFB0BEC5);
-                  second.setHintTextColor(0xFFB0BEC5);
-                  content.addView(first);
-                  content.addView(second);
-
-                  TextView result = makeText(
-                      "Введите значения и нажмите «Рассчитать»", 16);
-                  content.addView(result);
-
-                  addButton("Рассчитать", () -> {
-                      try {
-                          double x = Double.parseDouble(
-                              first.getText().toString().trim().replace(',', '.'));
-                          double y = Double.parseDouble(
-                              second.getText().toString().trim().replace(',', '.'));
-
-                          if (!Double.isFinite(x) || !Double.isFinite(y)
-                                  || x <= 0 || y <= 0) {
-                              throw new NumberFormatException();
-                          }
-
-                          double answer = mode == 0 ? x * y : x / y;
-                          result.setText(title + ": "
-                              + String.format(Locale.getDefault(), "%.2f", answer));
-                      } catch (NumberFormatException exception) {
-                          result.setText("Введите два положительных числа.");
-                      }
-                  });
-
-                  addButton("← К калькуляторам", this::showCalculators);
-              }
-
-              private void showReference() {
-                  base("Справочник электрика");
-                  content.addView(makeText(
-                      "Основные формулы\n\n"
-                      + "Мощность постоянного тока: P = U × I\n"
-                      + "Ток: I = P / U\n"
-                      + "Сопротивление: R = U / I\n\n"
-                      + "Не определяйте назначение проводника только по цвету. "
-                      + "Проверяйте документацию и измерения подходящим прибором.\n\n"
-                      + "Перед работой отключите питание и проверьте отсутствие "
-                      + "напряжения. Работы выполняйте с соблюдением действующих "
-                      + "правил электробезопасности.", 16));
-                  addButton("← На главную", this::showHome);
-              }
-
-              private void showEstimate() {
-                  base("Смета и материалы");
-                  content.addView(makeText(
-                      "Раздел смет будет добавлен на следующем этапе.", 16));
-                  addButton("← На главную", this::showHome);
-              }
-
-              private void showProjects() {
-                  base("Мои объекты");
-                  content.addView(makeText(
-                      "Раздел клиентов и объектов будет добавлен на следующем этапе.",
-                      16));
-                  addButton("← На главную", this::showHome);
-              }
-          }
-          EOF
-
-      - name: Build APK
+      # Important: do NOT generate/overwrite project files here.
+      # Build the real source files committed to this repository.
+      - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
