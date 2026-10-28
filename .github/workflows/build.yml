@@ -1,4 +1,3 @@
-
 name: Build ElectricPRO APK
 
 on:
@@ -22,20 +21,21 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Install Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: |
-            platforms;android-35
-            build-tools;35.0.0
+          packages: "platforms;android-35,build-tools;35.0.0"
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Create Android project
+      - name: Create Android project files
+        shell: bash
         run: |
+          set -euo pipefail
+
           mkdir -p app/src/main/java/com/electricpro/app
           mkdir -p app/src/main/res/values
 
@@ -47,6 +47,7 @@ jobs:
                   gradlePluginPortal()
               }
           }
+
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -54,8 +55,9 @@ jobs:
                   mavenCentral()
               }
           }
+
           rootProject.name = "ElectricPRO"
-          include ':app'
+          include(":app")
           EOF
 
           cat > build.gradle <<'EOF'
@@ -98,8 +100,8 @@ jobs:
                       android:name=".MainActivity"
                       android:exported="true">
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
               </application>
@@ -108,7 +110,7 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"/>
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar" />
           </resources>
           EOF
 
@@ -120,18 +122,19 @@ jobs:
           import android.graphics.Color;
           import android.graphics.Typeface;
           import android.view.Gravity;
-          import android.view.View;
           import android.widget.Button;
+          import android.widget.EditText;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
           import android.widget.TextView;
 
+          import java.util.Locale;
+
           public class MainActivity extends Activity {
-              int navy = Color.rgb(11, 23, 36);
-              int panel = Color.rgb(24, 42, 59);
-              int yellow = Color.rgb(255, 211, 78);
-              int white = Color.WHITE;
-              LinearLayout content;
+              private final int navy = Color.rgb(11, 23, 36);
+              private final int yellow = Color.rgb(255, 211, 78);
+              private final int white = Color.WHITE;
+              private LinearLayout content;
 
               @Override
               public void onCreate(Bundle state) {
@@ -141,17 +144,17 @@ jobs:
                   showHome();
               }
 
-              TextView text(String value, int size) {
-                  TextView t = new TextView(this);
-                  t.setText(value);
-                  t.setTextSize(size);
-                  t.setTextColor(white);
-                  t.setGravity(Gravity.CENTER);
-                  t.setPadding(12, 12, 12, 12);
-                  return t;
+              private TextView makeText(String value, int size) {
+                  TextView view = new TextView(this);
+                  view.setText(value);
+                  view.setTextSize(size);
+                  view.setTextColor(white);
+                  view.setGravity(Gravity.CENTER);
+                  view.setPadding(12, 12, 12, 12);
+                  return view;
               }
 
-              void base(String title) {
+              private void base(String title) {
                   ScrollView scroll = new ScrollView(this);
                   content = new LinearLayout(this);
                   content.setOrientation(LinearLayout.VERTICAL);
@@ -161,125 +164,138 @@ jobs:
                   scroll.addView(content);
                   setContentView(scroll);
 
-                  TextView heading = text("⚡ ЭЛЕКТРИК PRO", 26);
+                  TextView heading = makeText("⚡ ЭЛЕКТРИК PRO", 26);
                   heading.setTextColor(yellow);
                   heading.setTypeface(null, Typeface.BOLD);
                   content.addView(heading);
-                  content.addView(text(title, 18));
+                  content.addView(makeText(title, 18));
               }
 
-              void button(String title, Runnable action) {
-                  Button b = new Button(this);
-                  b.setText(title);
-                  b.setTextColor(navy);
-                  b.setTextSize(16);
-                  b.setAllCaps(false);
-                  b.setBackgroundTintList(
+              private void addButton(String title, Runnable action) {
+                  Button button = new Button(this);
+                  button.setText(title);
+                  button.setTextColor(navy);
+                  button.setTextSize(16);
+                  button.setAllCaps(false);
+                  button.setBackgroundTintList(
                       android.content.res.ColorStateList.valueOf(yellow));
-                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
-                      -1, -2);
-                  p.setMargins(0, 8, 0, 8);
-                  content.addView(b, p);
-                  b.setOnClickListener(v -> action.run());
+
+                  LinearLayout.LayoutParams params =
+                      new LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT);
+                  params.setMargins(0, 8, 0, 8);
+                  content.addView(button, params);
+                  button.setOnClickListener(view -> action.run());
               }
 
-              void showHome() {
+              private void showHome() {
                   base("Инструменты профессионального электрика");
-                  button("🧮 Электрические калькуляторы", this::showCalculators);
-                  button("📚 Справочник электрика", this::showReference);
-                  button("📋 Смета и материалы", this::showEstimate);
-                  button("🏗 Мои объекты", this::showProjects);
-                  content.addView(text(
-                      "Работайте безопасно. Расчёты необходимо проверять "
-                      + "по действующим нормам и условиям объекта.", 13));
+                  addButton("🧮 Электрические калькуляторы", this::showCalculators);
+                  addButton("📚 Справочник электрика", this::showReference);
+                  addButton("📋 Смета и материалы", this::showEstimate);
+                  addButton("🏗 Мои объекты", this::showProjects);
+                  content.addView(makeText(
+                      "Работайте безопасно. Проверяйте расчёты по действующим "
+                      + "нормам и условиям конкретного объекта.", 13));
               }
 
-              void showCalculators() {
+              private void showCalculators() {
                   base("Электрические калькуляторы");
-                  button("Мощность: P = U × I", () ->
-                      inputCalculator("Мощность (Вт)", "Введите напряжение U (В)",
-                          "Введите ток I (А)", 0));
-                  button("Ток: I = P / U", () ->
-                      inputCalculator("Ток (А)", "Введите мощность P (Вт)",
-                          "Введите напряжение U (В)", 1));
-                  button("Сопротивление: R = U / I", () ->
-                      inputCalculator("Сопротивление (Ом)", "Введите напряжение U (В)",
-                          "Введите ток I (А)", 2));
-                  button("← На главную", this::showHome);
+                  addButton("Мощность: P = U × I", () ->
+                      inputCalculator("Мощность (Вт)",
+                          "Напряжение U (В)", "Ток I (А)", 0));
+                  addButton("Ток: I = P / U", () ->
+                      inputCalculator("Ток (А)",
+                          "Мощность P (Вт)", "Напряжение U (В)", 1));
+                  addButton("Сопротивление: R = U / I", () ->
+                      inputCalculator("Сопротивление (Ом)",
+                          "Напряжение U (В)", "Ток I (А)", 2));
+                  addButton("← На главную", this::showHome);
               }
 
-              void inputCalculator(String title, String first, String second,
-                                   int mode) {
-                  android.widget.EditText a = new android.widget.EditText(this);
-                  android.widget.EditText b = new android.widget.EditText(this);
-                  a.setHint(first);
-                  b.setHint(second);
-                  a.setInputType(8194);
-                  b.setInputType(8194);
-                  a.setTextColor(white);
-                  b.setTextColor(white);
-                  a.setHintTextColor(0xFFB0BEC5);
-                  b.setHintTextColor(0xFFB0BEC5);
-                  content.addView(a);
-                  content.addView(b);
-                  TextView result = text("Введите значения и нажмите «Рассчитать»", 16);
+              private void inputCalculator(
+                      String title, String firstHint, String secondHint, int mode) {
+                  EditText first = new EditText(this);
+                  EditText second = new EditText(this);
+                  first.setSingleLine(true);
+                  second.setSingleLine(true);
+                  first.setHint(firstHint);
+                  second.setHint(secondHint);
+                  first.setInputType(8194);
+                  second.setInputType(8194);
+                  first.setTextColor(white);
+                  second.setTextColor(white);
+                  first.setHintTextColor(0xFFB0BEC5);
+                  second.setHintTextColor(0xFFB0BEC5);
+                  content.addView(first);
+                  content.addView(second);
+
+                  TextView result = makeText(
+                      "Введите значения и нажмите «Рассчитать»", 16);
                   content.addView(result);
-                  button("Рассчитать", () -> {
+
+                  addButton("Рассчитать", () -> {
                       try {
-                          double x = Double.parseDouble(a.getText().toString());
-                          double y = Double.parseDouble(b.getText().toString());
-                          if (x <= 0 || y <= 0) throw new Exception();
-                          double r = mode == 0 ? x * y :
-                                     mode == 1 ? x / y : x / y;
-                          result.setText(title + ": " + String.format(
-                              java.util.Locale.getDefault(), "%.2f", r));
-                      } catch (Exception e) {
+                          double x = Double.parseDouble(
+                              first.getText().toString().trim().replace(',', '.'));
+                          double y = Double.parseDouble(
+                              second.getText().toString().trim().replace(',', '.'));
+
+                          if (!Double.isFinite(x) || !Double.isFinite(y)
+                                  || x <= 0 || y <= 0) {
+                              throw new NumberFormatException();
+                          }
+
+                          double answer = mode == 0 ? x * y : x / y;
+                          result.setText(title + ": "
+                              + String.format(Locale.getDefault(), "%.2f", answer));
+                      } catch (NumberFormatException exception) {
                           result.setText("Введите два положительных числа.");
                       }
                   });
-                  button("← К калькуляторам", this::showCalculators);
+
+                  addButton("← К калькуляторам", this::showCalculators);
               }
 
-              void showReference() {
+              private void showReference() {
                   base("Справочник электрика");
-                  content.addView(text(
+                  content.addView(makeText(
                       "Основные формулы\n\n"
                       + "Мощность постоянного тока: P = U × I\n"
                       + "Ток: I = P / U\n"
                       + "Сопротивление: R = U / I\n\n"
-                      + "Цвета проводников могут зависеть от системы "
-                      + "и действующих норм. Не определяйте назначение "
-                      + "проводника только по цвету — проверяйте измерениями "
-                      + "и документацией.\n\n"
-                      + "Перед работой отключите питание и проверьте "
-                      + "отсутствие напряжения подходящим прибором.", 16));
-                  button("← На главную", this::showHome);
+                      + "Не определяйте назначение проводника только по цвету. "
+                      + "Проверяйте документацию и измерения подходящим прибором.\n\n"
+                      + "Перед работой отключите питание и проверьте отсутствие "
+                      + "напряжения. Работы выполняйте с соблюдением действующих "
+                      + "правил электробезопасности.", 16));
+                  addButton("← На главную", this::showHome);
               }
 
-              void showEstimate() {
+              private void showEstimate() {
                   base("Смета и материалы");
-                  content.addView(text(
-                      "Здесь будет список материалов и расчёт стоимости работ.",
-                      16));
-                  button("← На главную", this::showHome);
+                  content.addView(makeText(
+                      "Раздел смет будет добавлен на следующем этапе.", 16));
+                  addButton("← На главную", this::showHome);
               }
 
-              void showProjects() {
+              private void showProjects() {
                   base("Мои объекты");
-                  content.addView(text(
-                      "Здесь появится учёт клиентов, объектов и выполненных работ.",
+                  content.addView(makeText(
+                      "Раздел клиентов и объектов будет добавлен на следующем этапе.",
                       16));
-                  button("← На главную", this::showHome);
+                  addButton("← На главную", this::showHome);
               }
           }
           EOF
 
-
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ElectricPRO-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
