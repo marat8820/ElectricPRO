@@ -245,7 +245,9 @@ public class MainActivity extends Activity {
         input.setTextSize(16);
         input.setPadding(dp(12), dp(8), dp(12), dp(8));
         input.setBackground(bg(panel2, 9));
-        input.setInputType(8194);
+        // Название заказа вводится буквами, а не цифровой клавиатурой.
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         root.addView(input, lp(-1, 48));
         return input;
     }
@@ -682,7 +684,13 @@ public class MainActivity extends Activity {
         input.setTextSize(16);
         input.setPadding(dp(12), dp(8), dp(12), dp(8));
         input.setBackground(bg(panel2, 9));
-        input.setInputType(8194);
+        if (label.equals("Название работ")) {
+            input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        } else {
+            input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                    | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        }
         LinearLayout.LayoutParams p = lp(-1, 48);
         p.topMargin = dp(5);
         p.bottomMargin = dp(5);
