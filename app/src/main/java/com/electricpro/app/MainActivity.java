@@ -507,7 +507,8 @@ public class MainActivity extends Activity {
         LinearLayout linesContainer = column();
         root.addView(linesContainer, lp(-1, -2));
 
-        Runnable refresh = () -> {
+        final Runnable[] refresh = new Runnable[1];
+        refresh[0] = () -> {
             linesContainer.removeAllViews();
             if (order.lines.isEmpty()) {
                 TextView empty = text("Строк работ пока нет. Нажмите «Добавить строку работ».", 14, muted, false);
@@ -541,7 +542,7 @@ public class MainActivity extends Activity {
                         .setNegativeButton("Отмена", null)
                         .setPositiveButton("Удалить", (dialog, which) -> {
                             order.lines.remove(lineIndex);
-                            refresh.run();
+                            refresh[0].run();
                         }).show());
                 card.addView(row);
                 LinearLayout.LayoutParams p = lp(-1, -2);
@@ -550,7 +551,7 @@ public class MainActivity extends Activity {
             }
             totalView.setText("ИТОГО ЗА ЗАКАЗ: " + money(order.total()));
         };
-        refresh.run();
+        refresh[0].run();
 
         actionButton("▤  Создать PDF сметы", () -> {
             String name = orderName.getText().toString().trim();
