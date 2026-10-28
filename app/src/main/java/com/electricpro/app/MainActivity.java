@@ -64,6 +64,9 @@ public class MainActivity extends Activity {
 
     private static class Order {
         String name;
+        String executorDetails = "";
+        String customerDetails = "";
+        String address = "";
         final List<WorkLine> lines = new ArrayList<>();
 
         Order(String name) {
@@ -386,6 +389,9 @@ public class MainActivity extends Activity {
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
                 Order order = new Order(obj.optString("name", "Новый заказ"));
+                order.executorDetails = obj.optString("executorDetails", "");
+                order.customerDetails = obj.optString("customerDetails", "");
+                order.address = obj.optString("address", "");
                 JSONArray lines = obj.optJSONArray("lines");
                 if (lines != null) {
                     for (int j = 0; j < lines.length(); j++) {
@@ -409,6 +415,9 @@ public class MainActivity extends Activity {
             for (Order order : orders) {
                 JSONObject obj = new JSONObject();
                 obj.put("name", order.name);
+                obj.put("executorDetails", order.executorDetails);
+                obj.put("customerDetails", order.customerDetails);
+                obj.put("address", order.address);
                 JSONArray lines = new JSONArray();
                 for (WorkLine line : order.lines) {
                     JSONObject item = new JSONObject();
@@ -500,8 +509,14 @@ public class MainActivity extends Activity {
 
     private void orderEditor(Order order, int existingIndex) {
         page("Заказ", "Добавьте работы — стоимость считается автоматически", true);
-        EditText orderName = field("Название заказа / объект", order.name);
-        actionButton("＋  Добавить строку работ", () -> lineDialog(order, -1, orderName.getText().toString()));
+        EditText orderName = field("Название сметы / объекта", order.name);
+        EditText executorDetails = field("Исполнитель: имя, телефон, реквизиты", order.executorDetails);
+        EditText customerDetails = field("Заказчик: имя, телефон, реквизиты", order.customerDetails);
+        EditText address = field("Адрес объекта", order.address);
+        actionButton("＋  Добавить строку работ", () -> {
+            copyOrderFields(order, orderName, executorDetails, customerDetails, address);
+            lineDialog(order, -1, orderName.getText().toString());
+        });
         TextView totalView = text("", 22, yellow, true);
         totalView.setPadding(0, dp(12), 0, dp(10));
         root.addView(totalView, lp(-1, -2));
@@ -537,7 +552,10 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams d = new LinearLayout.LayoutParams(0, dp(40), 1);
                 d.leftMargin = dp(5);
                 row.addView(delete, d);
-                edit.setOnClickListener(v -> lineDialog(order, lineIndex, orderName.getText().toString()));
+                edit.setOnClickListener(v -> {
+                    copyOrderFields(order, orderName, executorDetails, customerDetails, address);
+                    lineDialog(order, lineIndex, orderName.getText().toString());
+                });
                 delete.setOnClickListener(v -> new AlertDialog.Builder(this)
                         .setTitle("Удалить строку?")
                         .setMessage(line.name)
@@ -566,6 +584,9 @@ public class MainActivity extends Activity {
                 return;
             }
             order.name = name;
+            order.executorDetails = executorDetails.getText().toString().trim();
+            order.customerDetails = customerDetails.getText().toString().trim();
+            order.address = address.getText().toString().trim();
             createEstimatePdf(order);
         });
 
@@ -582,13 +603,27 @@ public class MainActivity extends Activity {
                         .setNegativeButton("Вернуться", null)
                         .setPositiveButton("Сохранить", (dialog, which) -> {
                             order.name = name;
+                            order.executorDetails = executorDetails.getText().toString().trim();
+                            order.customerDetails = customerDetails.getText().toString().trim();
+                            order.address = address.getText().toString().trim();
                             persistOrder(order, existingIndex);
                         }).show();
                 return;
             }
             order.name = name;
+            order.executorDetails = executorDetails.getText().toString().trim();
+            order.customerDetails = customerDetails.getText().toString().trim();
+            order.address = address.getText().toString().trim();
             persistOrder(order, existingIndex);
         });
+    }
+
+    private void copyOrderFields(Order order, EditText orderName, EditText executorDetails,
+                                 EditText customerDetails, EditText address) {
+        order.name = orderName.getText().toString().trim();
+        order.executorDetails = executorDetails.getText().toString().trim();
+        order.customerDetails = customerDetails.getText().toString().trim();
+        order.address = address.getText().toString().trim();
     }
 
     private void persistOrder(Order order, int existingIndex) {
@@ -754,7 +789,20 @@ public class MainActivity extends Activity {
                     y += 18;
                     canvas.drawText("Дата: " + new java.text.SimpleDateFormat(
                             "dd.MM.yyyy", Locale.getDefault()).format(new java.util.Date()), left, y, paint);
-                    y += 25;
+                    y += 18;
+                    if (!order.executorDetails.trim().isEmpty()) {
+                        canvas.drawText("Исполнитель: " + clipText(order.executorDetails, 78), left, y, paint);
+                        y += 16;
+                    }
+                    if (!order.customerDetails.trim().isEmpty()) {
+                        canvas.drawText("Заказчик: " + clipText(order.customerDetails, 78), left, y, paint);
+                        y += 16;
+                    }
+                    if (!order.address.trim().isEmpty()) {
+                        canvas.drawText("Адрес объекта: " + clipText(order.address, 78), left, y, paint);
+                        y += 16;
+                    }
+                    y += 9;
 
                     paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
                     paint.setTextSize(10);
@@ -812,9 +860,27 @@ public class MainActivity extends Activity {
             paint.setTextSize(14);
             paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
             canvas.drawText("ИТОГО: " + money(order.total()), left, y, paint);
-            y += 35;
-            paint.setTextSize(9);
+            y += 42;
+
+            if (y > pageHeight - 145) {
+                document.finishPage(page);
+                pageNumber++;
+                PdfDocument.PageInfo info = new PdfDocument.PageInfo.Builder(
+                        pageWidth, pageHeight, pageNumber).create();
+                page = document.startPage(info);
+                canvas = page.getCanvas();
+                y = 65;
+            }
+
+            paint.setTextSize(10);
             paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
+            canvas.drawText("Исполнитель: ______________________________", left, y, paint);
+            canvas.drawText("Заказчик: ________________________________", left + 270, y, paint);
+            y += 34;
+            canvas.drawText("Подпись: __________________________________", left, y, paint);
+            canvas.drawText("Подпись: __________________________________", left + 270, y, paint);
+            y += 28;
+            paint.setTextSize(9);
             canvas.drawText("Документ сформирован приложением Электрик PRO", left, y, paint);
             document.finishPage(page);
 
