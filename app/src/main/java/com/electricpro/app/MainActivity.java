@@ -49,6 +49,27 @@ public class MainActivity extends Activity {
     private static final String PREFS_NAME = "electricpro_orders";
     private static final String ORDERS_KEY = "orders_json";
 
+    private static final String PROJECT_PREFS = "electricpro_panel_project";
+    private static final String PROJECT_KEY = "panel_devices_json";
+    private final List<PanelDevice> panelDevices = new ArrayList<>();
+    private final List<int[]> panelWires = new ArrayList<>();
+    private BoardView boardView;
+    private boolean wireMode = false;
+    private int wireStartId = -1;
+    private int nextDeviceId = 1;
+
+    private static class PanelDevice {
+        int id;
+        String type;
+        String designation;
+        String rating;
+        float x, y;
+        PanelDevice(int id, String type, String designation, String rating, float x, float y) {
+            this.id=id; this.type=type; this.designation=designation; this.rating=rating;
+            this.x=x; this.y=y;
+        }
+    }
+
     private static class Line {
         String name;
         double quantity;
@@ -253,199 +274,293 @@ private void panelEditor() {
 
 
 private void panelLayout() {
-    page("Редактор щита", "Компоновка оборудования • DIN-рейка", true);
+    page("Редактор щита", "Рабочее поле • аппараты • соединения", true);
+    loadPanelProject();
 
-    LinearLayout editor = column();
-    editor.setPadding(dp(12), dp(12), dp(12), dp(12));
-    editor.setBackground(bg(Color.rgb(235, 239, 244), 12));
-    root.addView(editor, lp(-1, -2));
+    TextView toolbar = text("Перетащите аппарат пальцем. Нажмите на аппарат для настроек.", 12, muted, false);
+    toolbar.setPadding(0, 0, 0, dp(10));
+    root.addView(toolbar, lp(-1, -2));
 
-    TextView project = text("ЩР — КВАРТИРА", 18,
-            Color.rgb(25, 40, 58), true);
-    editor.addView(project, lp(-1, -2));
+    boardView = new BoardView();
+    LinearLayout.LayoutParams boardParams = lp(-1, 420);
+    root.addView(boardView, boardParams);
 
-    TextView summary = text("230 В  •  1 фаза  •  2 ряда", 12,
-            Color.rgb(82, 96, 111), false);
-    LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-    summaryParams.topMargin = dp(4);
-    editor.addView(summary, summaryParams);
+    addSpace(10);
+    LinearLayout tools1 = new LinearLayout(this);
+    tools1.setOrientation(LinearLayout.HORIZONTAL);
+    root.addView(tools1, lp(-1, -2));
+    addTool(tools1, "＋ Аппарат", () -> showDeviceCatalog(), 1);
+    addTool(tools1, wireMode ? "✓ Режим проводов" : "↗ Соединить", () -> {
+        wireMode = !wireMode;
+        wireStartId = -1;
+        panelLayout();
+    }, 1);
 
-    TextView catalogTitle = text("ОБОРУДОВАНИЕ", 13,
-            Color.rgb(25, 40, 58), true);
-    LinearLayout.LayoutParams catTitleParams = lp(-1, -2);
-    catTitleParams.topMargin = dp(18);
-    editor.addView(catalogTitle, catTitleParams);
+    LinearLayout tools2 = new LinearLayout(this);
+    tools2.setOrientation(LinearLayout.HORIZONTAL);
+    LinearLayout.LayoutParams tools2p = lp(-1, -2);
+    tools2p.topMargin = dp(8);
+    root.addView(tools2, tools2p);
+    addTool(tools2, "Сохранить проект", () -> {
+        savePanelProject();
+        message("Проект щита сохранён на этом устройстве.");
+    }, 1);
+    addTool(tools2, "Открыть проект", () -> {
+        loadPanelProject();
+        if (boardView != null) boardView.invalidate();
+        message("Сохранённый проект открыт.");
+    }, 1);
 
-    String[] names = {
-        "Вводной автомат", "Автомат", "УЗО",
-        "Дифавтомат", "Реле напряжения", "Контактор"
-    };
-    String[] symbols = {"QF", "QF", "QD", "QFD", "RN", "KM"};
-    for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(6);
-        editor.addView(row, rowParams);
-        for (int colIndex = 0; colIndex < 2; colIndex++) {
-            int i = rowIndex * 2 + colIndex;
-            final String deviceName = names[i];
-            LinearLayout item = new LinearLayout(this);
-            item.setOrientation(LinearLayout.VERTICAL);
-            item.setGravity(Gravity.CENTER);
-            item.setPadding(dp(5), dp(8), dp(5), dp(8));
-            item.setBackground(bg(Color.WHITE, 8));
-            item.setOnClickListener(v -> addDeviceToBoard(deviceName));
-            LinearLayout.LayoutParams itemParams =
-                    new LinearLayout.LayoutParams(0, dp(88), 1);
-            itemParams.setMargins(dp(3), 0, dp(3), 0);
-            row.addView(item, itemParams);
-
-            TextView symbol = text(symbols[i], 19,
-                    Color.rgb(31, 65, 94), true);
-            symbol.setGravity(Gravity.CENTER);
-            item.addView(symbol, lp(-1, dp(28)));
-
-            TextView label = text(deviceName, 11,
-                    Color.rgb(25, 40, 58), true);
-            label.setGravity(Gravity.CENTER);
-            item.addView(label, lp(-1, -2));
-
-            TextView hint = text("＋ Добавить", 10,
-                    Color.rgb(25, 112, 92), true);
-            hint.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams hintParams = lp(-1, -2);
-            hintParams.topMargin = dp(3);
-            item.addView(hint, hintParams);
-        }
-    }
-
-    LinearLayout boardHeader = new LinearLayout(this);
-    boardHeader.setGravity(Gravity.CENTER_VERTICAL);
-    boardHeader.setOrientation(LinearLayout.HORIZONTAL);
-    LinearLayout.LayoutParams headerParams = lp(-1, -2);
-    headerParams.topMargin = dp(18);
-    editor.addView(boardHeader, headerParams);
-
-    TextView boardTitle = text("КОМПОНОВКА ЩИТА", 13,
-            Color.rgb(25, 40, 58), true);
-    boardHeader.addView(boardTitle, new LinearLayout.LayoutParams(0, -2, 1));
-
-    TextView moduleCount = text("12 модулей", 11,
-            Color.rgb(25, 112, 92), true);
-    boardHeader.addView(moduleCount, lp(-2, -2));
-
-    LinearLayout board = new LinearLayout(this);
-    board.setOrientation(LinearLayout.VERTICAL);
-    board.setPadding(dp(10), dp(12), dp(10), dp(12));
-    board.setBackground(bg(Color.rgb(250, 251, 252), 8));
-    LinearLayout.LayoutParams boardParams = lp(-1, -2);
-    boardParams.topMargin = dp(8);
-    editor.addView(board, boardParams);
-
-    TextView enclosureLabel = text("ЩИТ • 2 РЯДА × 12 МОДУЛЕЙ", 11,
-            Color.rgb(82, 96, 111), true);
-    enclosureLabel.setGravity(Gravity.CENTER);
-    board.addView(enclosureLabel, lp(-1, -2));
-
-    for (int rowNum = 1; rowNum <= 2; rowNum++) {
-        TextView railLabel = text("DIN-РЕЙКА " + rowNum, 10,
-                Color.rgb(82, 96, 111), true);
-        LinearLayout.LayoutParams railLabelParams = lp(-1, -2);
-        railLabelParams.topMargin = dp(12);
-        board.addView(railLabel, railLabelParams);
-
-        LinearLayout rail = new LinearLayout(this);
-        rail.setOrientation(LinearLayout.HORIZONTAL);
-        rail.setGravity(Gravity.CENTER_VERTICAL);
-        rail.setPadding(dp(3), dp(5), dp(3), dp(5));
-        rail.setBackground(bg(Color.rgb(206, 214, 222), 5));
-        LinearLayout.LayoutParams railParams = lp(-1, dp(66));
-        railParams.topMargin = dp(4);
-        board.addView(rail, railParams);
-        rail.setTag(rowNum == 1 ? "shield_rail" : "shield_rail_2");
-
-        for (int slot = 0; slot < 12; slot++) {
-            View module = new View(this);
-            module.setBackground(bg(Color.rgb(240, 243, 246), 2));
-            LinearLayout.LayoutParams moduleParams =
-                    new LinearLayout.LayoutParams(0, dp(48), 1);
-            moduleParams.setMargins(dp(1), 0, dp(1), 0);
-            rail.addView(module, moduleParams);
-        }
-    }
-
-    TextView help = text(
-            "Нажмите на аппарат в каталоге, чтобы добавить его на первую рейку. " +
-            "Нажмите на установленный аппарат, чтобы изменить номинал или удалить его.",
-            12, Color.rgb(82, 96, 111), false);
-    help.setPadding(dp(2), dp(12), dp(2), dp(4));
-    editor.addView(help, lp(-1, -2));
-
-    actionButton("⌁  Открыть однолинейную схему", () -> panelScheme());
     addSpace(8);
+    actionButton("⌁  Построить однолинейную схему", () -> panelScheme());
+    addSpace(6);
     actionButton("▤  Список оборудования", () -> panelEquipmentList());
 }
 
-private void addDeviceToBoard(String deviceName) {
-    if (root == null) return;
-    LinearLayout rail = root.findViewWithTag("shield_rail");
-    if (rail == null) {
-        android.widget.Toast.makeText(this, "Сначала откройте компоновку щита",
-                android.widget.Toast.LENGTH_SHORT).show();
-        return;
-    }
-
-    int usedModules = 0;
-    for (int i = 0; i < rail.getChildCount(); i++) {
-        View child = rail.getChildAt(i);
-        if (child.getTag() == null || !"empty_slot".equals(child.getTag())) {
-            if (child instanceof TextView) usedModules++;
-        }
-    }
-    if (usedModules >= 12) {
-        new AlertDialog.Builder(this)
-                .setTitle("DIN-рейка заполнена")
-                .setMessage("На первой рейке больше нет свободных мест. Можно использовать вторую рейку.")
-                .setPositiveButton("Понятно", null)
-                .show();
-        return;
-    }
-
-    TextView device = text(deviceName + "\n16 A", 10,
-            Color.rgb(25, 40, 58), true);
-    device.setGravity(Gravity.CENTER);
-    device.setPadding(dp(2), dp(3), dp(2), dp(3));
-    device.setBackground(bg(Color.WHITE, 3));
-    device.setTag("installed_device");
-
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            dp(deviceName.equals("УЗО") || deviceName.equals("Дифавтомат") ? 54 : 42),
-            dp(54));
-    params.setMargins(dp(2), 0, dp(2), 0);
-    rail.addView(device, Math.max(0, rail.getChildCount() - 0), params);
-
-    device.setOnClickListener(v -> {
-        new AlertDialog.Builder(this)
-                .setTitle(deviceName)
-                .setItems(new String[]{"Изменить номинал", "Удалить устройство"},
-                        (dialog, which) -> {
-                            if (which == 0) {
-                                String[] ratings = {"6 A", "10 A", "16 A", "20 A",
-                                        "25 A", "32 A", "40 A", "63 A"};
-                                new AlertDialog.Builder(this)
-                                        .setTitle("Выберите номинал")
-                                        .setItems(ratings, (d, selected) ->
-                                                device.setText(deviceName + "\n" + ratings[selected]))
-                                        .show();
-                            } else {
-                                rail.removeView(device);
-                            }
-                        })
-                .show();
-    });
+private void addTool(LinearLayout row, String label, Runnable action, int weight) {
+    TextView b = text(label, 13, white, true);
+    b.setGravity(Gravity.CENTER);
+    b.setPadding(dp(5), dp(12), dp(5), dp(12));
+    b.setBackground(bg(panel2, 10));
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, weight);
+    p.setMargins(dp(3), 0, dp(3), 0);
+    row.addView(b, p);
+    b.setOnClickListener(v -> action.run());
 }
 
+private void showDeviceCatalog() {
+    String[] devices = {
+        "Вводной автомат", "Автоматический выключатель", "УЗО",
+        "Дифавтомат", "Контактор", "Реле напряжения", "Счётчик", "Клеммник"
+    };
+    new AlertDialog.Builder(this).setTitle("Добавить аппарат")
+        .setItems(devices, (d, which) -> {
+            String type = devices[which];
+            String designation = defaultDesignation(type);
+            int pos = panelDevices.size();
+            float px = 0.16f + (pos % 4) * 0.22f;
+            float py = 0.22f + ((pos / 4) % 3) * 0.20f;
+            panelDevices.add(new PanelDevice(nextDeviceId++, type, designation, defaultRating(type), px, py));
+            savePanelProject();
+            panelLayout();
+        }).setNegativeButton("Отмена", null).show();
+}
+
+private String defaultDesignation(String type) {
+    if (type.contains("УЗО")) return "УЗО";
+    if (type.contains("Диф")) return "QFD";
+    if (type.contains("Контактор")) return "KM";
+    if (type.contains("Реле")) return "RN";
+    if (type.contains("Счётчик")) return "M";
+    if (type.contains("Клемм")) return "X";
+    return "QF";
+}
+
+private String defaultRating(String type) {
+    if (type.contains("УЗО")) return "40 A / 30 mA";
+    if (type.contains("Диф")) return "16 A / 30 mA";
+    if (type.contains("Реле")) return "230 V";
+    if (type.contains("Счётчик")) return "230 V";
+    return "16 A";
+}
+
+private void editPanelDevice(PanelDevice device) {
+    LinearLayout form = column();
+    form.setPadding(dp(8), dp(4), dp(8), dp(4));
+    EditText designation = new EditText(this);
+    designation.setSingleLine(true);
+    designation.setHint("Обозначение, например QF1");
+    designation.setText(device.designation);
+    form.addView(designation, lp(-1, -2));
+    EditText rating = new EditText(this);
+    rating.setSingleLine(true);
+    rating.setHint("Номинал, например 16 A");
+    rating.setText(device.rating);
+    form.addView(rating, lp(-1, -2));
+    new AlertDialog.Builder(this).setTitle(device.type).setView(form)
+        .setNeutralButton("Удалить", (d, w) -> {
+            panelDevices.remove(device);
+            if (boardView != null) boardView.invalidate();
+            savePanelProject();
+        })
+        .setNegativeButton("Отмена", null)
+        .setPositiveButton("Сохранить", (d, w) -> {
+            device.designation = designation.getText().toString().trim();
+            device.rating = rating.getText().toString().trim();
+            if (boardView != null) boardView.invalidate();
+            savePanelProject();
+        }).show();
+}
+
+private void savePanelProject() {
+    try {
+        JSONArray array = new JSONArray();
+        for (PanelDevice d : panelDevices) {
+            JSONObject o = new JSONObject();
+            o.put("id", d.id); o.put("type", d.type);
+            o.put("designation", d.designation); o.put("rating", d.rating);
+            o.put("x", d.x); o.put("y", d.y);
+            array.put(o);
+        }
+        JSONArray wireArray = new JSONArray();
+        for (int[] wire : panelWires) {
+            JSONArray pair = new JSONArray();
+            pair.put(wire[0]); pair.put(wire[1]);
+            wireArray.put(pair);
+        }
+        getSharedPreferences(PROJECT_PREFS, MODE_PRIVATE).edit()
+            .putString(PROJECT_KEY, array.toString())
+            .putString("panel_wires_json", wireArray.toString())
+            .putInt("next_id", nextDeviceId).apply();
+    } catch (Exception ignored) { }
+}
+
+private void loadPanelProject() {
+    panelDevices.clear();
+    panelWires.clear();
+    try {
+        SharedPreferences prefs = getSharedPreferences(PROJECT_PREFS, MODE_PRIVATE);
+        nextDeviceId = prefs.getInt("next_id", 1);
+        JSONArray array = new JSONArray(prefs.getString(PROJECT_KEY, "[]"));
+        for (int i=0; i<array.length(); i++) {
+            JSONObject o = array.getJSONObject(i);
+            panelDevices.add(new PanelDevice(o.optInt("id", i+1),
+                o.optString("type", "Автоматический выключатель"),
+                o.optString("designation", "QF" + (i+1)),
+                o.optString("rating", "16 A"),
+                (float)o.optDouble("x", .2), (float)o.optDouble("y", .25)));
+        }
+        JSONArray wireArray = new JSONArray(prefs.getString("panel_wires_json", "[]"));
+        for (int i=0; i<wireArray.length(); i++) {
+            JSONArray pair = wireArray.getJSONArray(i);
+            if (pair.length() >= 2) panelWires.add(new int[]{pair.getInt(0), pair.getInt(1)});
+        }
+        if (nextDeviceId <= panelDevices.size()) nextDeviceId = panelDevices.size()+1;
+    } catch (Exception ignored) { }
+}
+
+private class BoardView extends View {
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private float dragDx, dragDy;
+    private PanelDevice dragging;
+    private boolean moved = false;
+
+    BoardView() {
+        super(MainActivity.this);
+        setBackgroundColor(Color.rgb(249, 251, 253));
+        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+    }
+
+    private float sx(float x) { return x * getWidth(); }
+    private float sy(float y) { return y * getHeight(); }
+
+    @Override protected void onDraw(Canvas c) {
+        super.onDraw(c);
+        float w=getWidth(), h=getHeight();
+        paint.setColor(Color.rgb(226, 233, 240)); paint.setStrokeWidth(dp(1));
+        for (int x=0; x<w; x+=dp(20)) c.drawLine(x,0,x,h,paint);
+        for (int y=0; y<h; y+=dp(20)) c.drawLine(0,y,w,y,paint);
+
+        paint.setColor(Color.rgb(32, 58, 82)); paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(dp(2)); c.drawRoundRect(dp(12),dp(12),w-dp(12),h-dp(12),dp(8),dp(8),paint);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.rgb(82, 101, 118)); paint.setTextSize(dp(11)); paint.setTypeface(Typeface.DEFAULT_BOLD);
+        c.drawText("ЩИТ • DIN-РЕЙКА", dp(20), dp(32), paint);
+
+        float railY=h*.60f;
+        paint.setColor(Color.rgb(167, 178, 189)); c.drawRoundRect(dp(20),railY,w-dp(20),railY+dp(12),dp(3),dp(3),paint);
+        paint.setColor(Color.rgb(111, 126, 140)); c.drawRect(dp(20),railY+dp(4),w-dp(20),railY+dp(7),paint);
+
+        // Wires are drawn between the centers of the connected devices.
+        paint.setColor(Color.rgb(210, 70, 45)); paint.setStrokeWidth(dp(2)); paint.setStyle(Paint.Style.STROKE);
+        for (int[] wire : panelWires) {
+            PanelDevice a=findDevice(wire[0]), b=findDevice(wire[1]);
+            if (a!=null && b!=null) c.drawLine(sx(a.x), sy(a.y), sx(b.x), sy(b.y), paint);
+        }
+        paint.setStyle(Paint.Style.FILL);
+
+        for (PanelDevice d : panelDevices) drawDevice(c,d);
+        paint.setColor(wireMode ? Color.rgb(190,50,35) : Color.rgb(25,112,92));
+        paint.setTextSize(dp(11)); paint.setTypeface(Typeface.DEFAULT_BOLD);
+        c.drawText(wireMode ? "РЕЖИМ СОЕДИНЕНИЯ: нажмите два аппарата" : "Перетаскивайте аппараты пальцем", dp(20), h-dp(20), paint);
+    }
+
+    private void drawDevice(Canvas c, PanelDevice d) {
+        float x=sx(d.x), y=sy(d.y);
+        float bw=dp(62), bh=dp(76);
+        paint.setColor(Color.WHITE); c.drawRoundRect(x-bw/2,y-bh/2,x+bw/2,y+bh/2,dp(5),dp(5),paint);
+        paint.setColor(Color.rgb(31,65,94)); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(2));
+        c.drawRoundRect(x-bw/2,y-bh/2,x+bw/2,y+bh/2,dp(5),dp(5),paint); paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.rgb(32,58,82)); paint.setTextSize(dp(10)); paint.setTypeface(Typeface.DEFAULT_BOLD);
+        String sym = d.designation == null ? "QF" : d.designation;
+        c.drawText(ellipsize(sym, 8), x-paint.measureText(ellipsize(sym,8))/2, y-dp(12), paint);
+        paint.setColor(Color.rgb(25,112,92)); c.drawRect(x-dp(8),y-dp(7),x+dp(8),y+dp(8),paint);
+        paint.setColor(Color.rgb(32,58,82)); paint.setTextSize(dp(9)); paint.setTypeface(Typeface.DEFAULT);
+        String r = d.rating == null ? "" : d.rating;
+        c.drawText(ellipsize(r, 10), x-paint.measureText(ellipsize(r,10))/2, y+dp(24), paint);
+    }
+
+    private String ellipsize(String s, int max) {
+        if (s==null) return "";
+        return s.length()>max ? s.substring(0,max) : s;
+    }
+
+    @Override public boolean onTouchEvent(android.view.MotionEvent e) {
+        float x=e.getX(), y=e.getY();
+        if (e.getAction()==android.view.MotionEvent.ACTION_DOWN) {
+            dragging=hit(x,y); moved=false;
+            if (dragging!=null) { dragDx=x-sx(dragging.x); dragDy=y-sy(dragging.y); return true; }
+            return true;
+        } else if (e.getAction()==android.view.MotionEvent.ACTION_MOVE && dragging!=null && !wireMode) {
+            moved=true;
+            dragging.x=Math.max(.08f,Math.min(.92f,(x-dragDx)/Math.max(1,getWidth())));
+            dragging.y=Math.max(.10f,Math.min(.86f,(y-dragDy)/Math.max(1,getHeight())));
+            invalidate(); return true;
+        } else if (e.getAction()==android.view.MotionEvent.ACTION_UP) {
+            if (dragging!=null) {
+                PanelDevice selected=dragging; dragging=null;
+                if (wireMode) {
+                    if (wireStartId<0) wireStartId=selected.id;
+                    else if (wireStartId!=selected.id) { panelWires.add(new int[]{wireStartId,selected.id}); wireStartId=-1; savePanelProject(); }
+                    invalidate();
+                } else {
+                    if (Math.abs(x-sx(selected.x))<dp(8) && Math.abs(y-sy(selected.y))<dp(8)) editPanelDevice(selected);
+                    savePanelProject();
+                }
+                return true;
+            }
+            return true;
+        }
+        return true;
+    }
+
+    private PanelDevice hit(float x,float y) {
+        for (int i=panelDevices.size()-1;i>=0;i--) {
+            PanelDevice d=panelDevices.get(i);
+            if (Math.abs(x-sx(d.x))<dp(36) && Math.abs(y-sy(d.y))<dp(42)) return d;
+        }
+        return null;
+    }
+}
+
+private PanelDevice findDevice(int id) {
+    for (PanelDevice d : panelDevices) if (d.id==id) return d;
+    return null;
+}
+
+private void panelScheme() {
+    page("Однолинейная схема", "Схема по текущему проекту", true);
+    if (panelDevices.isEmpty()) {
+        infoCard("Пока нет аппаратов", "Добавьте аппараты в редакторе щита, затем вернитесь сюда.");
+        actionButton("Открыть редактор щита", () -> panelLayout());
+        return;
+    }
+    BoardView scheme = new BoardView();
+    root.addView(scheme, lp(-1, 460));
+    TextView note = text("Учебная схема. Перед монтажом проект должен проверить квалифицированный специалист.", 12, yellow, true);
+    note.setPadding(0,dp(10),0,0);
+    root.addView(note,lp(-1,-2));
+}
 private void panelScheme() {
     page("Однолинейная схема", "Предварительный макет", true);
 
@@ -476,39 +591,21 @@ private void panelScheme() {
 }
 
 private void panelAddEquipment() {
-    final String[] equipment = {
-        "Вводной автомат",
-        "Автоматический выключатель",
-        "УЗО",
-        "Дифавтомат",
-        "Контактор",
-        "Реле напряжения",
-        "Счётчик",
-        "Клеммник"
-    };
-
-    new AlertDialog.Builder(this)
-        .setTitle("Выберите оборудование для щита")
-        .setItems(equipment, (dialog, which) -> {
-            addDeviceToBoard(equipment[which]);
-        })
-        .setNegativeButton("Отмена", null)
-        .show();
+    showDeviceCatalog();
 }
 
 private void panelEquipmentList() {
-    page("Список оборудования", "Состав проекта", true);
-
-    TextView info = text(
-        "Пока оборудование не добавлено.\n\n" +
-        "Открой «Добавить оборудование», чтобы выбрать аппарат.",
-        16, white, false
-    );
-    info.setGravity(Gravity.CENTER);
-    info.setPadding(dp(12), dp(24), dp(12), dp(24));
-    root.addView(info, lp(-1, -2));
-
-    actionButton("＋  Добавить оборудование", () -> panelAddEquipment());
+    page("Список оборудования", "Состав сохранённого проекта", true);
+    loadPanelProject();
+    if (panelDevices.isEmpty()) {
+        infoCard("Пока оборудование не добавлено", "Откройте редактор и нажмите «＋ Аппарат».");
+    } else {
+        for (PanelDevice d : panelDevices) {
+            infoCard(d.designation + " • " + d.type, "Номинал: " + d.rating);
+        }
+    }
+    actionButton("＋  Добавить оборудование", () -> panelLayout());
+    actionButton("←  Вернуться к редактору", () -> panelLayout());
 }
 
     private void calc() {
