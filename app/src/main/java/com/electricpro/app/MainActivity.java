@@ -234,20 +234,113 @@ private void panelEditor() {
     actionButton("▤  Список оборудования", () -> panelEquipmentList());
 }
 
+
 private void panelLayout() {
-    page("Компоновка щита", "Предварительное размещение на DIN-рейке", true);
+    page("Редактор щита", "Выберите оборудование и добавьте его на DIN-рейку", true);
 
-    TextView info = text(
-        "DIN-РЕЙКА\n\n[ Вводной автомат ]  [ УЗО ]  [ Автомат 1 ]\n\n" +
-        "Это макет. Оборудование пока нельзя перемещать пальцем.",
-        17, white, true
-    );
-    info.setGravity(Gravity.CENTER);
-    info.setPadding(dp(12), dp(30), dp(12), dp(30));
-    root.addView(info, lp(-1, -2));
+    LinearLayout editor = new LinearLayout(this);
+    editor.setOrientation(LinearLayout.VERTICAL);
+    editor.setPadding(dp(12), dp(12), dp(12), dp(12));
+    editor.setBackgroundColor(Color.rgb(232, 236, 241));
+    root.addView(editor, lp(-1, -2));
 
-    actionButton("＋  Добавить оборудование", () -> panelAddEquipment());
+    TextView title = text("КАТАЛОГ ОБОРУДОВАНИЯ", 15,
+            Color.rgb(25, 40, 58), true);
+    editor.addView(title, lp(-1, -2));
+
+    LinearLayout catalog = new LinearLayout(this);
+    catalog.setOrientation(LinearLayout.HORIZONTAL);
+    editor.addView(catalog, lp(-1, -2));
+
+    String[] devices = {
+        "Вводной\nавтомат",
+        "УЗО",
+        "Дифавтомат",
+        "Реле\nнапряжения"
+    };
+
+    String[] symbols = {"ВА", "УЗО", "АВДТ", "РН"};
+
+    for (int i = 0; i < devices.length; i++) {
+        final String device = devices[i];
+
+        TextView item = text(
+                symbols[i] + "\n\n" + devices[i],
+                12, Color.rgb(25, 40, 58), true);
+
+        item.setGravity(Gravity.CENTER);
+        item.setPadding(dp(5), dp(12), dp(5), dp(12));
+
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(Color.WHITE);
+        shape.setCornerRadius(dp(8));
+        shape.setStroke(dp(1), Color.rgb(170, 180, 190));
+        item.setBackground(shape);
+
+        LinearLayout.LayoutParams itemParams =
+                new LinearLayout.LayoutParams(0, dp(90), 1);
+        itemParams.setMargins(dp(3), dp(8), dp(3), dp(8));
+        catalog.addView(item, itemParams);
+
+        item.setOnClickListener(v -> {
+            addDeviceToBoard(device);
+        });
+    }
+
+    TextView boardTitle = text("РАБОЧЕЕ ПОЛЕ", 15,
+            Color.rgb(25, 40, 58), true);
+    LinearLayout.LayoutParams titleParams = lp(-1, -2);
+    titleParams.topMargin = dp(14);
+    editor.addView(boardTitle, titleParams);
+
+    LinearLayout board = new LinearLayout(this);
+    board.setOrientation(LinearLayout.VERTICAL);
+    board.setPadding(dp(12), dp(16), dp(12), dp(16));
+
+    GradientDrawable boardShape = new GradientDrawable();
+    boardShape.setColor(Color.rgb(250, 250, 247));
+    boardShape.setCornerRadius(dp(8));
+    boardShape.setStroke(dp(2), Color.rgb(115, 125, 135));
+    board.setBackground(boardShape);
+
+    editor.addView(board, lp(-1, -2));
+
+    TextView railLabel = text("DIN-РЕЙКА № 1", 12,
+            Color.rgb(70, 80, 90), true);
+    board.addView(railLabel, lp(-1, -2));
+
+    LinearLayout rail = new LinearLayout(this);
+    rail.setOrientation(LinearLayout.HORIZONTAL);
+    rail.setGravity(Gravity.CENTER_VERTICAL);
+    rail.setPadding(dp(4), dp(8), dp(4), dp(8));
+
+    GradientDrawable railShape = new GradientDrawable();
+    railShape.setColor(Color.rgb(205, 211, 217));
+    railShape.setCornerRadius(dp(4));
+    railShape.setStroke(dp(1), Color.rgb(125, 135, 145));
+    rail.setBackground(railShape);
+
+    LinearLayout.LayoutParams railParams = lp(-1, -2);
+    railParams.topMargin = dp(8);
+    board.addView(rail, railParams);
+
+    TextView empty = text(
+            "Выберите устройство выше",
+            13, Color.rgb(90, 100, 110), false);
+    empty.setGravity(Gravity.CENTER);
+    empty.setPadding(0, dp(18), 0, dp(18));
+    board.addView(empty, lp(-1, -2));
+
+    // Храним ссылки на рабочее поле и рейку для добавления устройств.
+    editor.setTag("shield_editor");
+    board.setTag("shield_board");
+    rail.setTag("shield_rail");
+    empty.setTag("shield_empty");
+
+    actionButton("＋  Добавить оборудование",
+            () -> panelAddEquipment());
 }
+
 
 private void panelScheme() {
     page("Однолинейная схема", "Предварительный макет", true);
