@@ -125,12 +125,31 @@ public class MainActivity extends Activity {
         TextView iv=text(icon,28,yellow,true); iv.setGravity(Gravity.CENTER); c.addView(iv,lp(-1,38));
         TextView tv=text(title,15,white,true); tv.setGravity(Gravity.CENTER); c.addView(tv,lp(-1,-2));
         TextView dv=text(description,11,muted,false); dv.setGravity(Gravity.CENTER); dv.setPadding(0,dp(4),0,0); c.addView(dv,lp(-1,-2));
-       c.setOnClickListener(v -> {
-    if (action != null) {
-        action.run();
+        c.setOnClickListener(v -> {
+            if (action != null) action.run();
+        });
+        return c;
     }
-}); return c;
+
+    // Создаёт строку из двух карточек главного меню.
+    private void addGridCardRow(String icon1, String title1, String description1, Runnable action1,
+                                String icon2, String title2, String description2, Runnable action2) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        LinearLayout.LayoutParams first = new LinearLayout.LayoutParams(0, dp(130), 1f);
+        first.setMargins(0, 0, dp(5), 0);
+        row.addView(makeGridCard(icon1, title1, description1, action1), first);
+
+        LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(0, dp(130), 1f);
+        second.setMargins(dp(5), 0, 0, 0);
+        row.addView(makeGridCard(icon2, title2, description2, action2), second);
+
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.bottomMargin = dp(2);
+        root.addView(row, rowParams);
     }
+
     private void infoCard(String title, String body) {
         LinearLayout c=column(); c.setPadding(dp(15),dp(14),dp(15),dp(14)); c.setBackground(bg(panel,13)); c.addView(text(title,16,white,true));
         TextView b=text(body,14,muted,false); b.setPadding(0,dp(7),0,0); c.addView(b);
@@ -186,7 +205,7 @@ addGridCardRow(
 );
 addSpace(10);
 
-addView(makeGridCard(
+root.addView(makeGridCard(
     "▤",
     "Редактор щита",
     "Компоновка, схема и проверка",
