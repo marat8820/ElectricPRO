@@ -158,6 +158,7 @@ public class MainActivity extends Activity {
         addGridCardRow("▦","Калькулятор\nпроводов","Ток и сечение",()->calc(),"☼","Освещение","Световой поток",()->light());
         addGridCardRow("⬟","Безопасность","Правила и защита",()->safety(),"▤","Справочник","Формулы и таблицы",()->reference());
         actionButton("▣  Мои заказы",()->ordersPage()); addSpace(8);
+        actionButton("⚡  Расширенные расчёты",()->advancedCalc()); addSpace(8);
         TextView f=text("Работай безопасно! Работай с умом!",13,yellow,true); f.setGravity(Gravity.CENTER); root.addView(f,lp(-1,-2));
     }
     private void calc() {
@@ -176,6 +177,159 @@ public class MainActivity extends Activity {
         actionButton("☼  Рассчитать освещение",()->{double a=value(area),l=value(lux),w=value(watts),f=value(lumens);if(!valid(a,l,w,f)||a<=0||l<=0||w<=0||f<=0){message("Все значения должны быть больше нуля.");return;}int n=(int)Math.ceil(a*l/f);resultCard("Ориентировочно светильников",String.valueOf(n),String.format(Locale.getDefault(),"Суммарный поток: %.0f лм\nМощность: %.0f Вт",n*f,n*w));});
         infoCard("Примечание","Расчёт не учитывает коэффициент использования, высоту монтажа, загрязнение и отражение поверхностей.");
     }
+    private void advancedCalc() {
+    page("Расширенные расчёты", "Электротехнический калькулятор", true);
+
+    actionButton("Ток по мощности", () -> calcCurrent());
+    actionButton("Мощность по току", () -> calcPower());
+    actionButton("Падение напряжения в кабеле", () -> calcVoltageDrop());
+    }
+    
+private void calcCurrent() {
+    final android.widget.EditText power = new android.widget.EditText(this);
+    power.setHint("Мощность, Вт");
+    power.setInputType(8194);
+
+    final android.widget.EditText voltage = new android.widget.EditText(this);
+    voltage.setHint("Напряжение, В");
+    voltage.setInputType(8194);
+
+    android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+    layout.setPadding(dp(20), dp(8), dp(20), dp(8));
+    layout.addView(power);
+    layout.addView(voltage);
+
+    new android.app.AlertDialog.Builder(this)
+        .setTitle("Расчёт тока")
+        .setView(layout)
+        .setPositiveButton("Рассчитать", (dialog, which) -> {
+            try {
+                double p = Double.parseDouble(power.getText().toString().trim());
+                double u = Double.parseDouble(voltage.getText().toString().trim());
+
+                if (p <= 0 || u <= 0) throw new Exception();
+
+                double current = p / u;
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Результат")
+                    .setMessage(String.format(java.util.Locale.getDefault(),
+                        "Расчётный ток: %.2f А\n\nФормула: I = P / U",
+                        current))
+                    .setPositiveButton("OK", null)
+                    .show();
+            } catch (Exception e) {
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage("Введи корректные значения больше нуля.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            }
+        })
+        .setNegativeButton("Отмена", null)
+        .show();
+}
+
+private void calcPower() {
+    final android.widget.EditText current = new android.widget.EditText(this);
+    current.setHint("Ток, А");
+    current.setInputType(8194);
+
+    final android.widget.EditText voltage = new android.widget.EditText(this);
+    voltage.setHint("Напряжение, В");
+    voltage.setInputType(8194);
+
+    android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+    layout.setPadding(dp(20), dp(8), dp(20), dp(8));
+    layout.addView(current);
+    layout.addView(voltage);
+
+    new android.app.AlertDialog.Builder(this)
+        .setTitle("Расчёт мощности")
+        .setView(layout)
+        .setPositiveButton("Рассчитать", (dialog, which) -> {
+            try {
+                double i = Double.parseDouble(current.getText().toString().trim());
+                double u = Double.parseDouble(voltage.getText().toString().trim());
+
+                if (i <= 0 || u <= 0) throw new Exception();
+
+                double p = i * u;
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Результат")
+                    .setMessage(String.format(java.util.Locale.getDefault(),
+                        "Расчётная мощность: %.2f Вт\n(%.2f кВт)\n\nФормула: P = U × I",
+                        p, p / 1000.0))
+                    .setPositiveButton("OK", null)
+                    .show();
+            } catch (Exception e) {
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage("Введи корректные значения больше нуля.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            }
+        })
+        .setNegativeButton("Отмена", null)
+        .show();
+}
+
+private void calcVoltageDrop() {
+    final android.widget.EditText length = new android.widget.EditText(this);
+    length.setHint("Длина кабеля в одну сторону, м");
+    length.setInputType(8194);
+
+    final android.widget.EditText current = new android.widget.EditText(this);
+    current.setHint("Ток, А");
+    current.setInputType(8194);
+
+    final android.widget.EditText section = new android.widget.EditText(this);
+    section.setHint("Сечение медной жилы, мм²");
+    section.setInputType(8194);
+
+    android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+    layout.setPadding(dp(20), dp(8), dp(20), dp(8));
+    layout.addView(length);
+    layout.addView(current);
+    layout.addView(section);
+
+    new android.app.AlertDialog.Builder(this)
+        .setTitle("Падение напряжения")
+        .setMessage("Предварительный расчёт для медного кабеля, однофазная цепь 230 В.")
+        .setView(layout)
+        .setPositiveButton("Рассчитать", (dialog, which) -> {
+            try {
+                double l = Double.parseDouble(length.getText().toString().trim());
+                double i = Double.parseDouble(current.getText().toString().trim());
+                double s = Double.parseDouble(section.getText().toString().trim());
+
+                if (l <= 0 || i <= 0 || s <= 0) throw new Exception();
+
+                double drop = 2 * l * i * 0.0175 / s;
+                double percent = drop / 230.0 * 100.0;
+
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Результат")
+                    .setMessage(String.format(java.util.Locale.getDefault(),
+                        "Падение напряжения: %.2f В\n" +
+                        "Относительное падение: %.2f %%\n" +
+                        "Ориентировочное напряжение на нагрузке: %.2f В\n\n" +
+                        "Расчёт приблизительный. Он не проверяет допустимый ток кабеля, " +
+                        "условия прокладки и требования применимых норм.",
+                        drop, percent, 230.0 - drop))
+                    .setPositiveButton("OK", null)
+                    .show();
+            } catch (Exception e) {
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage("Введи корректные значения больше нуля.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            }
+        })
+        .setNegativeButton("Отмена", null)
+        .show();
+}
+
     private void safety() {
         page("Безопасность","Основные правила перед началом работ",true);
         infoCard("⚠  Отключите питание","Отключите нужную цепь, исключите случайное повторное включение и обозначьте место работ.");
