@@ -186,10 +186,12 @@ public class MainActivity extends Activity {
 
     addSpace(14);
 
-    actionButton("▣  Мои заказы", () -> ordersPage());
-    addSpace(10);
-
-    actionButton("⚡  Расширенные расчёты", () -> advancedCalc());
+addGridCardRow(
+    "▣", "Мои заказы", "Заказы и работы",
+    () -> ordersPage(),
+    "⚡", "Расширенные расчёты", "Дополнительные формулы",
+    () -> advancedCalc()
+);
     addSpace(20);
 
     TextView f = text(
