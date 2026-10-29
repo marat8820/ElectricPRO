@@ -210,7 +210,7 @@ root.addView(makeGridCard(
     "Редактор щита",
     "Компоновка, схема и проверка",
     () -> panelEditor()
-), lp(-1, dp(20)));
+), lp(-1, dp(50)));
 
 addSpace(20);
 
