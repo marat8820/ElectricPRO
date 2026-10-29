@@ -341,6 +341,81 @@ private void panelLayout() {
             () -> panelAddEquipment());
 }
 
+private void addDeviceToBoard(String deviceName) {
+    if (root == null) return;
+
+    LinearLayout rail = root.findViewWithTag("shield_rail");
+    TextView empty = root.findViewWithTag("shield_empty");
+
+    if (rail == null) {
+        toast("Сначала откройте редактор щита");
+        return;
+    }
+
+    if (empty != null) {
+        empty.setVisibility(View.GONE);
+    }
+
+    TextView device = text(
+            deviceName + "\n16 A",
+            12,
+            Color.rgb(25, 40, 58),
+            true
+    );
+
+    device.setGravity(Gravity.CENTER);
+    device.setPadding(dp(5), dp(10), dp(5), dp(10));
+
+    GradientDrawable shape = new GradientDrawable();
+    shape.setColor(Color.WHITE);
+    shape.setCornerRadius(dp(4));
+    shape.setStroke(dp(2), Color.rgb(60, 85, 110));
+    device.setBackground(shape);
+
+    LinearLayout.LayoutParams params =
+            new LinearLayout.LayoutParams(
+                    dp(76), dp(82));
+
+    params.setMargins(dp(2), 0, dp(2), 0);
+    rail.addView(device, params);
+
+    device.setOnClickListener(v -> {
+        new AlertDialog.Builder(this)
+                .setTitle(deviceName)
+                .setItems(
+                        new String[]{
+                                "Изменить номинал",
+                                "Удалить устройство"
+                        },
+                        (dialog, which) -> {
+                            if (which == 0) {
+                                String[] ratings = {
+                                        "6 A", "10 A", "16 A",
+                                        "20 A", "25 A", "32 A",
+                                        "40 A", "63 A"
+                                };
+
+                                new AlertDialog.Builder(this)
+                                        .setTitle("Выберите номинал")
+                                        .setItems(ratings,
+                                                (d, selected) -> {
+                                                    device.setText(
+                                                            deviceName + "\n" +
+                                                            ratings[selected]);
+                                                })
+                                        .show();
+                            } else {
+                                rail.removeView(device);
+
+                                if (rail.getChildCount() == 1
+                                        && empty != null) {
+                                    empty.setVisibility(View.VISIBLE);
+                                }
+                            }
+                        })
+                .show();
+    });
+}
 
 private void panelScheme() {
     page("Однолинейная схема", "Предварительный макет", true);
