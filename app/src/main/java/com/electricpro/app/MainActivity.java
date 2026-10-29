@@ -186,16 +186,16 @@ addGridCardRow(
     "⚡", "Расширенные расчёты", "Дополнительные формулы",
     () -> advancedCalc()
 );
- addSpace(10);
+addSpace(10);
 
-    addGridCardRow(
-        "▤", "Редактор щита", "Компоновка и схема",
-        () -> panelEditor(),
-        "✓", "Проверка проекта", "Подготовка к монтажу",
-        () -> panelEditor()
-    );
+addGridCardRow(
+    "▤", "Редактор щита", "Компоновка, схема и проверка",
+    () -> panelEditor(),
+    "", "", "",
+    null
+);
 
-    addSpace(20);
+addSpace(20);
 
     TextView f = text(
         "РАБОТАЙ БЕЗОПАСНО!\nРаботай с умом.",
