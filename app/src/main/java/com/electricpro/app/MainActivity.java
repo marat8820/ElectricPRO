@@ -114,12 +114,12 @@ public class MainActivity extends Activity {
             sub.setPadding(0, dp(4), 0, dp(18)); root.addView(sub, lp(-1, -2));
         }
     }
+    
     private void addSpace(int h) { View v = new View(this); root.addView(v, lp(1, h)); }
     private void actionButton(String label, Runnable action) {
         TextView b = text(label, 16, navy, true); b.setGravity(Gravity.CENTER); b.setPadding(dp(12), dp(13), dp(12), dp(13)); b.setBackground(bg(yellow, 12));
         LinearLayout.LayoutParams p = lp(-1, -2); p.topMargin = dp(8); p.bottomMargin = dp(5); root.addView(b, p); b.setOnClickListener(v -> action.run());
     }
-   addGridCardRow(
     private View makeGridCard(String icon, String title, String description, Runnable action) {
         LinearLayout c = column(); c.setGravity(Gravity.CENTER); c.setPadding(dp(10),dp(10),dp(10),dp(10)); c.setBackground(bg(panel,14));
         TextView iv=text(icon,28,yellow,true); iv.setGravity(Gravity.CENTER); c.addView(iv,lp(-1,38));
