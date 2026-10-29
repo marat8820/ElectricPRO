@@ -155,11 +155,6 @@ public class MainActivity extends Activity {
    private void home() {
     page("", "Ваш помощник в электромонтажных работах", false);
 
-    TextView h = text("⚡ ЭЛЕКТРИК PRO", 27, yellow, true);
-    h.setGravity(Gravity.CENTER);
-    h.setPadding(dp(8), dp(20), dp(8), dp(8));
-    root.addView(h, lp(-1, -2));
-
     TextView subtitle = text(
         "Знания. Расчёты. Безопасность.",
         16, white, true
@@ -193,15 +188,6 @@ addGridCardRow(
     () -> advancedCalc()
 );
  addSpace(10);
-
-    addGridCardRow(
-        "▣", "Мои заказы", "Заказы и работы",
-        () -> ordersPage(),
-        "⚡", "Расширенные расчёты", "Дополнительные формулы",
-        () -> advancedCalc()
-    );
-
-    addSpace(10);
 
     addGridCardRow(
         "▤", "Редактор щита", "Компоновка и схема",
