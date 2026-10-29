@@ -210,7 +210,7 @@ root.addView(makeGridCard(
     "Редактор щита",
     "Компоновка, схема и проверка",
     () -> panelEditor()
-), lp(-1, dp(50)));
+), lp(-1, dp(100)));
 
 addSpace(20);
 
@@ -253,181 +253,193 @@ private void panelEditor() {
 
 
 private void panelLayout() {
-    page("Редактор щита", "Выберите оборудование и добавьте его на DIN-рейку", true);
+    page("Редактор щита", "Компоновка оборудования • DIN-рейка", true);
 
-    LinearLayout editor = new LinearLayout(this);
-    editor.setOrientation(LinearLayout.VERTICAL);
+    LinearLayout editor = column();
     editor.setPadding(dp(12), dp(12), dp(12), dp(12));
-    editor.setBackgroundColor(Color.rgb(232, 236, 241));
+    editor.setBackground(bg(Color.rgb(235, 239, 244), 12));
     root.addView(editor, lp(-1, -2));
 
-    TextView title = text("КАТАЛОГ ОБОРУДОВАНИЯ", 15,
+    TextView project = text("ЩР — КВАРТИРА", 18,
             Color.rgb(25, 40, 58), true);
-    editor.addView(title, lp(-1, -2));
+    editor.addView(project, lp(-1, -2));
 
-    LinearLayout catalog = new LinearLayout(this);
-    catalog.setOrientation(LinearLayout.HORIZONTAL);
-    editor.addView(catalog, lp(-1, -2));
+    TextView summary = text("230 В  •  1 фаза  •  2 ряда", 12,
+            Color.rgb(82, 96, 111), false);
+    LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+    summaryParams.topMargin = dp(4);
+    editor.addView(summary, summaryParams);
 
-    String[] devices = {
-        "Вводной\nавтомат",
-        "УЗО",
-        "Дифавтомат",
-        "Реле\nнапряжения"
+    TextView catalogTitle = text("ОБОРУДОВАНИЕ", 13,
+            Color.rgb(25, 40, 58), true);
+    LinearLayout.LayoutParams catTitleParams = lp(-1, -2);
+    catTitleParams.topMargin = dp(18);
+    editor.addView(catalogTitle, catTitleParams);
+
+    String[] names = {
+        "Вводной автомат", "Автомат", "УЗО",
+        "Дифавтомат", "Реле напряжения", "Контактор"
     };
+    String[] symbols = {"QF", "QF", "QD", "QFD", "RN", "KM"};
+    for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(6);
+        editor.addView(row, rowParams);
+        for (int colIndex = 0; colIndex < 2; colIndex++) {
+            int i = rowIndex * 2 + colIndex;
+            final String deviceName = names[i];
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER);
+            item.setPadding(dp(5), dp(8), dp(5), dp(8));
+            item.setBackground(bg(Color.WHITE, 8));
+            item.setOnClickListener(v -> addDeviceToBoard(deviceName));
+            LinearLayout.LayoutParams itemParams =
+                    new LinearLayout.LayoutParams(0, dp(88), 1);
+            itemParams.setMargins(dp(3), 0, dp(3), 0);
+            row.addView(item, itemParams);
 
-    String[] symbols = {"ВА", "УЗО", "АВДТ", "РН"};
+            TextView symbol = text(symbols[i], 19,
+                    Color.rgb(31, 65, 94), true);
+            symbol.setGravity(Gravity.CENTER);
+            item.addView(symbol, lp(-1, dp(28)));
 
-    for (int i = 0; i < devices.length; i++) {
-        final String device = devices[i];
+            TextView label = text(deviceName, 11,
+                    Color.rgb(25, 40, 58), true);
+            label.setGravity(Gravity.CENTER);
+            item.addView(label, lp(-1, -2));
 
-        TextView item = text(
-                symbols[i] + "\n\n" + devices[i],
-                12, Color.rgb(25, 40, 58), true);
-
-        item.setGravity(Gravity.CENTER);
-        item.setPadding(dp(5), dp(12), dp(5), dp(12));
-
-        GradientDrawable shape = new GradientDrawable();
-        shape.setColor(Color.WHITE);
-        shape.setCornerRadius(dp(8));
-        shape.setStroke(dp(1), Color.rgb(170, 180, 190));
-        item.setBackground(shape);
-
-        LinearLayout.LayoutParams itemParams =
-                new LinearLayout.LayoutParams(0, dp(90), 1);
-        itemParams.setMargins(dp(3), dp(8), dp(3), dp(8));
-        catalog.addView(item, itemParams);
-
-        item.setOnClickListener(v -> {
-            addDeviceToBoard(device);
-        });
+            TextView hint = text("＋ Добавить", 10,
+                    Color.rgb(25, 112, 92), true);
+            hint.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams hintParams = lp(-1, -2);
+            hintParams.topMargin = dp(3);
+            item.addView(hint, hintParams);
+        }
     }
 
-    TextView boardTitle = text("РАБОЧЕЕ ПОЛЕ", 15,
+    LinearLayout boardHeader = new LinearLayout(this);
+    boardHeader.setGravity(Gravity.CENTER_VERTICAL);
+    boardHeader.setOrientation(LinearLayout.HORIZONTAL);
+    LinearLayout.LayoutParams headerParams = lp(-1, -2);
+    headerParams.topMargin = dp(18);
+    editor.addView(boardHeader, headerParams);
+
+    TextView boardTitle = text("КОМПОНОВКА ЩИТА", 13,
             Color.rgb(25, 40, 58), true);
-    LinearLayout.LayoutParams titleParams = lp(-1, -2);
-    titleParams.topMargin = dp(14);
-    editor.addView(boardTitle, titleParams);
+    boardHeader.addView(boardTitle, new LinearLayout.LayoutParams(0, -2, 1));
+
+    TextView moduleCount = text("12 модулей", 11,
+            Color.rgb(25, 112, 92), true);
+    boardHeader.addView(moduleCount, lp(-2, -2));
 
     LinearLayout board = new LinearLayout(this);
     board.setOrientation(LinearLayout.VERTICAL);
-    board.setPadding(dp(12), dp(16), dp(12), dp(16));
+    board.setPadding(dp(10), dp(12), dp(10), dp(12));
+    board.setBackground(bg(Color.rgb(250, 251, 252), 8));
+    LinearLayout.LayoutParams boardParams = lp(-1, -2);
+    boardParams.topMargin = dp(8);
+    editor.addView(board, boardParams);
 
-    GradientDrawable boardShape = new GradientDrawable();
-    boardShape.setColor(Color.rgb(250, 250, 247));
-    boardShape.setCornerRadius(dp(8));
-    boardShape.setStroke(dp(2), Color.rgb(115, 125, 135));
-    board.setBackground(boardShape);
+    TextView enclosureLabel = text("ЩИТ • 2 РЯДА × 12 МОДУЛЕЙ", 11,
+            Color.rgb(82, 96, 111), true);
+    enclosureLabel.setGravity(Gravity.CENTER);
+    board.addView(enclosureLabel, lp(-1, -2));
 
-    editor.addView(board, lp(-1, -2));
+    for (int rowNum = 1; rowNum <= 2; rowNum++) {
+        TextView railLabel = text("DIN-РЕЙКА " + rowNum, 10,
+                Color.rgb(82, 96, 111), true);
+        LinearLayout.LayoutParams railLabelParams = lp(-1, -2);
+        railLabelParams.topMargin = dp(12);
+        board.addView(railLabel, railLabelParams);
 
-    TextView railLabel = text("DIN-РЕЙКА № 1", 12,
-            Color.rgb(70, 80, 90), true);
-    board.addView(railLabel, lp(-1, -2));
+        LinearLayout rail = new LinearLayout(this);
+        rail.setOrientation(LinearLayout.HORIZONTAL);
+        rail.setGravity(Gravity.CENTER_VERTICAL);
+        rail.setPadding(dp(3), dp(5), dp(3), dp(5));
+        rail.setBackground(bg(Color.rgb(206, 214, 222), 5));
+        LinearLayout.LayoutParams railParams = lp(-1, dp(66));
+        railParams.topMargin = dp(4);
+        board.addView(rail, railParams);
+        rail.setTag(rowNum == 1 ? "shield_rail" : "shield_rail_2");
 
-    LinearLayout rail = new LinearLayout(this);
-    rail.setOrientation(LinearLayout.HORIZONTAL);
-    rail.setGravity(Gravity.CENTER_VERTICAL);
-    rail.setPadding(dp(4), dp(8), dp(4), dp(8));
+        for (int slot = 0; slot < 12; slot++) {
+            View module = new View(this);
+            module.setBackground(bg(Color.rgb(240, 243, 246), 2));
+            LinearLayout.LayoutParams moduleParams =
+                    new LinearLayout.LayoutParams(0, dp(48), 1);
+            moduleParams.setMargins(dp(1), 0, dp(1), 0);
+            rail.addView(module, moduleParams);
+        }
+    }
 
-    GradientDrawable railShape = new GradientDrawable();
-    railShape.setColor(Color.rgb(205, 211, 217));
-    railShape.setCornerRadius(dp(4));
-    railShape.setStroke(dp(1), Color.rgb(125, 135, 145));
-    rail.setBackground(railShape);
+    TextView help = text(
+            "Нажмите на аппарат в каталоге, чтобы добавить его на первую рейку. " +
+            "Нажмите на установленный аппарат, чтобы изменить номинал или удалить его.",
+            12, Color.rgb(82, 96, 111), false);
+    help.setPadding(dp(2), dp(12), dp(2), dp(4));
+    editor.addView(help, lp(-1, -2));
 
-    LinearLayout.LayoutParams railParams = lp(-1, -2);
-    railParams.topMargin = dp(8);
-    board.addView(rail, railParams);
-
-    TextView empty = text(
-            "Выберите устройство выше",
-            13, Color.rgb(90, 100, 110), false);
-    empty.setGravity(Gravity.CENTER);
-    empty.setPadding(0, dp(18), 0, dp(18));
-    board.addView(empty, lp(-1, -2));
-
-    // Храним ссылки на рабочее поле и рейку для добавления устройств.
-    editor.setTag("shield_editor");
-    board.setTag("shield_board");
-    rail.setTag("shield_rail");
-    empty.setTag("shield_empty");
-
-    actionButton("＋  Добавить оборудование",
-            () -> panelAddEquipment());
+    actionButton("⌁  Открыть однолинейную схему", () -> panelScheme());
+    addSpace(8);
+    actionButton("▤  Список оборудования", () -> panelEquipmentList());
 }
 
 private void addDeviceToBoard(String deviceName) {
     if (root == null) return;
-
     LinearLayout rail = root.findViewWithTag("shield_rail");
-    TextView empty = root.findViewWithTag("shield_empty");
-
     if (rail == null) {
-        android.widget.Toast.makeText(this, "Сначала откройте редактор щита", android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, "Сначала откройте компоновку щита",
+                android.widget.Toast.LENGTH_SHORT).show();
         return;
     }
 
-    if (empty != null) {
-        empty.setVisibility(View.GONE);
+    int usedModules = 0;
+    for (int i = 0; i < rail.getChildCount(); i++) {
+        View child = rail.getChildAt(i);
+        if (child.getTag() == null || !"empty_slot".equals(child.getTag())) {
+            if (child instanceof TextView) usedModules++;
+        }
+    }
+    if (usedModules >= 12) {
+        new AlertDialog.Builder(this)
+                .setTitle("DIN-рейка заполнена")
+                .setMessage("На первой рейке больше нет свободных мест. Можно использовать вторую рейку.")
+                .setPositiveButton("Понятно", null)
+                .show();
+        return;
     }
 
-    TextView device = text(
-            deviceName + "\n16 A",
-            12,
-            Color.rgb(25, 40, 58),
-            true
-    );
-
+    TextView device = text(deviceName + "\n16 A", 10,
+            Color.rgb(25, 40, 58), true);
     device.setGravity(Gravity.CENTER);
-    device.setPadding(dp(5), dp(10), dp(5), dp(10));
+    device.setPadding(dp(2), dp(3), dp(2), dp(3));
+    device.setBackground(bg(Color.WHITE, 3));
+    device.setTag("installed_device");
 
-    GradientDrawable shape = new GradientDrawable();
-    shape.setColor(Color.WHITE);
-    shape.setCornerRadius(dp(4));
-    shape.setStroke(dp(2), Color.rgb(60, 85, 110));
-    device.setBackground(shape);
-
-    LinearLayout.LayoutParams params =
-            new LinearLayout.LayoutParams(
-                    dp(76), dp(82));
-
+    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            dp(deviceName.equals("УЗО") || deviceName.equals("Дифавтомат") ? 54 : 42),
+            dp(54));
     params.setMargins(dp(2), 0, dp(2), 0);
-    rail.addView(device, params);
+    rail.addView(device, Math.max(0, rail.getChildCount() - 0), params);
 
     device.setOnClickListener(v -> {
         new AlertDialog.Builder(this)
                 .setTitle(deviceName)
-                .setItems(
-                        new String[]{
-                                "Изменить номинал",
-                                "Удалить устройство"
-                        },
+                .setItems(new String[]{"Изменить номинал", "Удалить устройство"},
                         (dialog, which) -> {
                             if (which == 0) {
-                                String[] ratings = {
-                                        "6 A", "10 A", "16 A",
-                                        "20 A", "25 A", "32 A",
-                                        "40 A", "63 A"
-                                };
-
+                                String[] ratings = {"6 A", "10 A", "16 A", "20 A",
+                                        "25 A", "32 A", "40 A", "63 A"};
                                 new AlertDialog.Builder(this)
                                         .setTitle("Выберите номинал")
-                                        .setItems(ratings,
-                                                (d, selected) -> {
-                                                    device.setText(
-                                                            deviceName + "\n" +
-                                                            ratings[selected]);
-                                                })
+                                        .setItems(ratings, (d, selected) ->
+                                                device.setText(deviceName + "\n" + ratings[selected]))
                                         .show();
                             } else {
                                 rail.removeView(device);
-
-                                if (rail.getChildCount() == 1
-                                        && empty != null) {
-                                    empty.setVisibility(View.VISIBLE);
-                                }
                             }
                         })
                 .show();
@@ -475,15 +487,10 @@ private void panelAddEquipment() {
         "Клеммник"
     };
 
-    new android.app.AlertDialog.Builder(this)
-        .setTitle("Выбери оборудование")
+    new AlertDialog.Builder(this)
+        .setTitle("Выберите оборудование для щита")
         .setItems(equipment, (dialog, which) -> {
-            android.widget.Toast.makeText(
-                this,
-                "Выбрано: " + equipment[which] +
-                ". Добавление в проект будет реализовано следующим шагом.",
-                android.widget.Toast.LENGTH_LONG
-            ).show();
+            addDeviceToBoard(equipment[which]);
         })
         .setNegativeButton("Отмена", null)
         .show();
