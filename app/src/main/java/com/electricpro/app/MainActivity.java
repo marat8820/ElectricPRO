@@ -152,15 +152,54 @@ public class MainActivity extends Activity {
         TextView r=text(result,27,yellow,true); r.setPadding(0,dp(7),0,dp(5)); c.addView(r); if(note!=null&&!note.isEmpty()) c.addView(text(note,13,muted,false));
         LinearLayout.LayoutParams p=lp(-1,-2); p.topMargin=dp(14); root.addView(c,p);
     }
-    private void home() {
-        page("", "Ваш помощник в электромонтажных работах", false);
-        TextView h=text("Знания. Расчёты.\nБезопасность.",24,white,true); h.setGravity(Gravity.CENTER); h.setPadding(0,dp(12),0,dp(20)); root.addView(h,lp(-1,-2));
-        addGridCardRow("▦","Калькулятор\nпроводов","Ток и сечение",()->calc(),"☼","Освещение","Световой поток",()->light());
-        addGridCardRow("⬟","Безопасность","Правила и защита",()->safety(),"▤","Справочник","Формулы и таблицы",()->reference());
-        actionButton("▣  Мои заказы",()->ordersPage()); addSpace(8);
-        actionButton("⚡  Расширенные расчёты",()->advancedCalc()); addSpace(8);
-        TextView f=text("Работай безопасно! Работай с умом!",13,yellow,true); f.setGravity(Gravity.CENTER); root.addView(f,lp(-1,-2));
-    }
+   private void home() {
+    page("", "Ваш помощник в электромонтажных работах", false);
+
+    TextView h = text("⚡ ЭЛЕКТРИК PRO", 27, yellow, true);
+    h.setGravity(Gravity.CENTER);
+    h.setPadding(dp(8), dp(20), dp(8), dp(8));
+    root.addView(h, lp(-1, -2));
+
+    TextView subtitle = text(
+        "Знания. Расчёты. Безопасность.",
+        16, white, true
+    );
+    subtitle.setGravity(Gravity.CENTER);
+    subtitle.setPadding(dp(8), 0, dp(8), dp(20));
+    root.addView(subtitle, lp(-1, -2));
+
+    addGridCardRow(
+        "▦", "Калькулятор\nпроводов", "Ток и сечение",
+        () -> calc(),
+        "☼", "Освещение", "Световой поток",
+        () -> light()
+    );
+
+    addSpace(10);
+
+    addGridCardRow(
+        "⬟", "Безопасность", "Правила и защита",
+        () -> safety(),
+        "▤", "Справочник", "Формулы и таблицы",
+        () -> reference()
+    );
+
+    addSpace(14);
+
+    actionButton("▣  Мои заказы", () -> ordersPage());
+    addSpace(10);
+
+    actionButton("⚡  Расширенные расчёты", () -> advancedCalc());
+    addSpace(20);
+
+    TextView f = text(
+        "РАБОТАЙ БЕЗОПАСНО!\nРаботай с умом.",
+        14, yellow, true
+    );
+    f.setGravity(Gravity.CENTER);
+    f.setPadding(dp(8), dp(12), dp(8), dp(20));
+    root.addView(f, lp(-1, -2));
+}
     private void calc() {
         page("Калькулятор проводов","Ориентировочный расчёт электрической нагрузки",true);
         infoCard("Расчёт по току","Для однофазной нагрузки: I ≈ P / U. Для более точного расчёта учитывайте коэффициент мощности и тип нагрузки.");
