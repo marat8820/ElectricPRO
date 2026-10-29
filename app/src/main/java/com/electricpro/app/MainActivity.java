@@ -153,7 +153,6 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams p=lp(-1,-2); p.topMargin=dp(14); root.addView(c,p);
     }
    private void home() {
-    page("", "Ваш помощник в электромонтажных работах", false);
 
     TextView subtitle = text(
         "Знания. Расчёты. Безопасность.",
