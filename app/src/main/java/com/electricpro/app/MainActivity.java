@@ -2,36 +2,39 @@ package com.electricpro.app;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.SharedPreferences;
 import android.content.ContentValues;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.os.Bundle;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import java.util.Locale;
-import java.util.ArrayList;
-import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     private final int navy = Color.rgb(4, 20, 39);
@@ -46,42 +49,29 @@ public class MainActivity extends Activity {
     private static final String PREFS_NAME = "electricpro_orders";
     private static final String ORDERS_KEY = "orders_json";
 
-    private static class WorkLine {
+    private static class Line {
         String name;
         double quantity;
         double price;
-
-        WorkLine(String name, double quantity, double price) {
-            this.name = name;
-            this.quantity = quantity;
-            this.price = price;
+        Line(String name, double quantity, double price) {
+            this.name = name; this.quantity = quantity; this.price = price;
         }
-
-        double total() {
-            return quantity * price;
-        }
+        double total() { return quantity * price; }
     }
-
     private static class Order {
         String name;
         String executorDetails = "";
         String customerDetails = "";
         String address = "";
-        final List<WorkLine> lines = new ArrayList<>();
-
-        Order(String name) {
-            this.name = name;
-        }
-
-        double total() {
-            double sum = 0;
-            for (WorkLine line : lines) sum += line.total();
-            return sum;
-        }
+        final List<Line> works = new ArrayList<>();
+        final List<Line> materials = new ArrayList<>();
+        Order(String name) { this.name = name; }
+        double workTotal() { double s = 0; for (Line l : works) s += l.total(); return s; }
+        double materialTotal() { double s = 0; for (Line l : materials) s += l.total(); return s; }
+        double total() { return workTotal() + materialTotal(); }
     }
 
-    @Override
-    public void onCreate(Bundle state) {
+    @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(navy);
         getWindow().setNavigationBarColor(navy);
@@ -89,858 +79,331 @@ public class MainActivity extends Activity {
         home();
     }
 
-    @Override
-    @SuppressWarnings("deprecation")
-    public void onBackPressed() {
-        if (!onHome) {
-            home();
-        } else {
-            super.onBackPressed();
-        }
+    @Override @SuppressWarnings("deprecation") public void onBackPressed() {
+        if (!onHome) home(); else super.onBackPressed();
     }
 
-    private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
-    }
-
+    private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
     private GradientDrawable bg(int color, int radius) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
-        drawable.setCornerRadius(dp(radius));
-        drawable.setStroke(dp(1), Color.rgb(28, 75, 113));
-        return drawable;
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color); d.setCornerRadius(dp(radius));
+        d.setStroke(dp(1), Color.rgb(28, 75, 113)); return d;
     }
-
     private TextView text(String value, int size, int color, boolean bold) {
-        TextView view = new TextView(this);
-        view.setText(value);
-        view.setTextSize(size);
-        view.setTextColor(color);
-        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        return view;
+        TextView v = new TextView(this); v.setText(value); v.setTextSize(size); v.setTextColor(color);
+        if (bold) v.setTypeface(Typeface.DEFAULT, Typeface.BOLD); return v;
     }
-
-    private LinearLayout column() {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        return layout;
+    private LinearLayout column() { LinearLayout l = new LinearLayout(this); l.setOrientation(LinearLayout.VERTICAL); return l; }
+    private LinearLayout.LayoutParams lp(int w, int h) {
+        return new LinearLayout.LayoutParams(w < 0 ? w : dp(w), h < 0 ? h : dp(h));
     }
-
-    private LinearLayout.LayoutParams lp(int width, int height) {
-        return new LinearLayout.LayoutParams(
-                width < 0 ? width : dp(width),
-                height < 0 ? height : dp(height));
-    }
-
     private void page(String title, String subtitle, boolean back) {
-        onHome = !back;
-        root = column();
-        root.setPadding(dp(18), dp(18), dp(18), dp(24));
-        root.setBackgroundColor(navy);
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(navy);
-        scroll.addView(root);
-        setContentView(scroll);
-
+        onHome = !back; root = column(); root.setPadding(dp(18), dp(18), dp(18), dp(24)); root.setBackgroundColor(navy);
+        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(navy); scroll.addView(root); setContentView(scroll);
         if (back) {
-            TextView top = text("‹    " + title, 20, white, true);
-            top.setPadding(0, dp(4), 0, dp(16));
-            top.setOnClickListener(v -> home());
-            root.addView(top, lp(-1, -2));
+            TextView top = text("‹    " + title, 20, white, true); top.setPadding(0, dp(4), 0, dp(16));
+            top.setOnClickListener(v -> home()); root.addView(top, lp(-1, -2));
         } else {
-            TextView logo = text("⚡", 42, yellow, true);
-            logo.setGravity(Gravity.CENTER);
-            root.addView(logo, lp(-1, 54));
-            TextView brand = text("ЭЛЕКТРИК ", 27, white, true);
-            brand.setGravity(Gravity.CENTER);
-            TextView pro = text("PRO", 27, yellow, true);
-            pro.setGravity(Gravity.CENTER);
-            LinearLayout name = new LinearLayout(this);
-            name.setGravity(Gravity.CENTER);
-            name.addView(brand);
-            name.addView(pro);
-            root.addView(name, lp(-1, 38));
+            TextView logo = text("⚡", 42, yellow, true); logo.setGravity(Gravity.CENTER); root.addView(logo, lp(-1, 54));
+            TextView brand = text("ЭЛЕКТРИК ", 27, white, true); brand.setGravity(Gravity.CENTER);
+            TextView pro = text("PRO", 27, yellow, true); pro.setGravity(Gravity.CENTER);
+            LinearLayout name = new LinearLayout(this); name.setGravity(Gravity.CENTER); name.addView(brand); name.addView(pro); root.addView(name, lp(-1, 38));
         }
-
         if (subtitle != null && !subtitle.isEmpty()) {
-            TextView sub = text(subtitle, 14, muted, false);
-            sub.setGravity(back ? Gravity.START : Gravity.CENTER);
-            sub.setPadding(0, dp(4), 0, dp(18));
-            root.addView(sub, lp(-1, -2));
+            TextView sub = text(subtitle, 14, muted, false); sub.setGravity(back ? Gravity.START : Gravity.CENTER);
+            sub.setPadding(0, dp(4), 0, dp(18)); root.addView(sub, lp(-1, -2));
         }
     }
-
-    private void addSpace(int height) {
-        View space = new View(this);
-        root.addView(space, lp(1, height));
-    }
-
+    private void addSpace(int h) { View v = new View(this); root.addView(v, lp(1, h)); }
     private void actionButton(String label, Runnable action) {
-        TextView button = text(label, 16, navy, true);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(12), dp(13), dp(12), dp(13));
-        button.setBackground(bg(yellow, 12));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.topMargin = dp(8);
-        params.bottomMargin = dp(5);
-        root.addView(button, params);
-        button.setOnClickListener(v -> action.run());
+        TextView b = text(label, 16, navy, true); b.setGravity(Gravity.CENTER); b.setPadding(dp(12), dp(13), dp(12), dp(13)); b.setBackground(bg(yellow, 12));
+        LinearLayout.LayoutParams p = lp(-1, -2); p.topMargin = dp(8); p.bottomMargin = dp(5); root.addView(b, p); b.setOnClickListener(v -> action.run());
     }
-
-    private void addGridCardRow(String icon1, String title1, String description1, Runnable action1,
-                                String icon2, String title2, String description2, Runnable action2) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams leftParams = new LinearLayout.LayoutParams(0, dp(132), 1);
-        leftParams.rightMargin = dp(6);
-        LinearLayout.LayoutParams rightParams = new LinearLayout.LayoutParams(0, dp(132), 1);
-        rightParams.leftMargin = dp(6);
-        row.addView(makeGridCard(icon1, title1, description1, action1), leftParams);
-        row.addView(makeGridCard(icon2, title2, description2, action2), rightParams);
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.bottomMargin = dp(10);
-        root.addView(row, rowParams);
+    private void addGridCardRow(String i1, String t1, String d1, Runnable a1, String i2, String t2, String d2, Runnable a2) {
+        LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams p1 = new LinearLayout.LayoutParams(0, dp(132), 1); p1.rightMargin = dp(6);
+        LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(0, dp(132), 1); p2.leftMargin = dp(6);
+        row.addView(makeGridCard(i1,t1,d1,a1),p1); row.addView(makeGridCard(i2,t2,d2,a2),p2);
+        LinearLayout.LayoutParams rp = lp(-1,-2); rp.bottomMargin = dp(10); root.addView(row,rp);
     }
-
     private View makeGridCard(String icon, String title, String description, Runnable action) {
-        LinearLayout card = column();
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(10), dp(10), dp(10), dp(10));
-        card.setBackground(bg(panel, 14));
-        TextView iconView = text(icon, 28, yellow, true);
-        iconView.setGravity(Gravity.CENTER);
-        card.addView(iconView, lp(-1, 38));
-        TextView titleView = text(title, 15, white, true);
-        titleView.setGravity(Gravity.CENTER);
-        card.addView(titleView, lp(-1, -2));
-        TextView descriptionView = text(description, 11, muted, false);
-        descriptionView.setGravity(Gravity.CENTER);
-        descriptionView.setPadding(0, dp(4), 0, 0);
-        card.addView(descriptionView, lp(-1, -2));
-        card.setOnClickListener(v -> action.run());
-        return card;
+        LinearLayout c = column(); c.setGravity(Gravity.CENTER); c.setPadding(dp(10),dp(10),dp(10),dp(10)); c.setBackground(bg(panel,14));
+        TextView iv=text(icon,28,yellow,true); iv.setGravity(Gravity.CENTER); c.addView(iv,lp(-1,38));
+        TextView tv=text(title,15,white,true); tv.setGravity(Gravity.CENTER); c.addView(tv,lp(-1,-2));
+        TextView dv=text(description,11,muted,false); dv.setGravity(Gravity.CENTER); dv.setPadding(0,dp(4),0,0); c.addView(dv,lp(-1,-2));
+        c.setOnClickListener(v -> action.run()); return c;
     }
-
     private void infoCard(String title, String body) {
-        LinearLayout card = column();
-        card.setPadding(dp(15), dp(14), dp(15), dp(14));
-        card.setBackground(bg(panel, 13));
-        card.addView(text(title, 16, white, true));
-        TextView bodyView = text(body, 14, muted, false);
-        bodyView.setPadding(0, dp(7), 0, 0);
-        card.addView(bodyView);
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.bottomMargin = dp(10);
-        root.addView(card, params);
+        LinearLayout c=column(); c.setPadding(dp(15),dp(14),dp(15),dp(14)); c.setBackground(bg(panel,13)); c.addView(text(title,16,white,true));
+        TextView b=text(body,14,muted,false); b.setPadding(0,dp(7),0,0); c.addView(b);
+        LinearLayout.LayoutParams p=lp(-1,-2); p.bottomMargin=dp(10); root.addView(c,p);
     }
-
-    private EditText field(String label, String initialValue) {
-        TextView labelView = text(label, 13, muted, false);
-        LinearLayout.LayoutParams labelParams = lp(-1, -2);
-        labelParams.topMargin = dp(10);
-        root.addView(labelView, labelParams);
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setText(initialValue);
-        input.setTextColor(white);
-        input.setHintTextColor(muted);
-        input.setTextSize(16);
-        input.setPadding(dp(12), dp(8), dp(12), dp(8));
-        input.setBackground(bg(panel2, 9));
-        // Название заказа вводится буквами, а не цифровой клавиатурой.
-        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        root.addView(input, lp(-1, 48));
-        return input;
+    private EditText field(String label, String initial) {
+        TextView l=text(label,13,muted,false); LinearLayout.LayoutParams p=lp(-1,-2); p.topMargin=dp(10); root.addView(l,p);
+        EditText e=new EditText(this); e.setSingleLine(true); e.setText(initial); e.setTextColor(white); e.setHintTextColor(muted); e.setTextSize(16);
+        e.setPadding(dp(12),dp(8),dp(12),dp(8)); e.setBackground(bg(panel2,9));
+        e.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        root.addView(e,lp(-1,48)); return e;
     }
-
-    private double value(EditText input) {
-        try {
-            return Double.parseDouble(input.getText().toString().trim().replace(',', '.'));
-        } catch (Exception exception) {
-            return Double.NaN;
-        }
-    }
-
-    private boolean valid(double... values) {
-        for (double value : values) {
-            if (Double.isNaN(value) || Double.isInfinite(value)) return false;
-        }
-        return true;
-    }
-
+    private double value(EditText e) { try { return Double.parseDouble(e.getText().toString().trim().replace(',','.')); } catch(Exception ex) { return Double.NaN; } }
+    private boolean valid(double... values) { for(double v:values) if(Double.isNaN(v)||Double.isInfinite(v)) return false; return true; }
     private void resultCard(String title, String result, String note) {
-        LinearLayout card = column();
-        card.setPadding(dp(16), dp(16), dp(16), dp(16));
-        card.setBackground(bg(panel, 14));
-        card.addView(text(title, 16, white, true));
-        TextView resultView = text(result, 27, yellow, true);
-        resultView.setPadding(0, dp(7), 0, dp(5));
-        card.addView(resultView);
-        if (note != null && !note.isEmpty()) card.addView(text(note, 13, muted, false));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.topMargin = dp(14);
-        root.addView(card, params);
+        LinearLayout c=column(); c.setPadding(dp(16),dp(16),dp(16),dp(16)); c.setBackground(bg(panel,14)); c.addView(text(title,16,white,true));
+        TextView r=text(result,27,yellow,true); r.setPadding(0,dp(7),0,dp(5)); c.addView(r); if(note!=null&&!note.isEmpty()) c.addView(text(note,13,muted,false));
+        LinearLayout.LayoutParams p=lp(-1,-2); p.topMargin=dp(14); root.addView(c,p);
     }
-
     private void home() {
         page("", "Ваш помощник в электромонтажных работах", false);
-        TextView headline = text("Знания. Расчёты.\nБезопасность.", 24, white, true);
-        headline.setGravity(Gravity.CENTER);
-        headline.setPadding(0, dp(12), 0, dp(20));
-        root.addView(headline, lp(-1, -2));
-        addGridCardRow("▦", "Калькулятор\nпроводов", "Ток и сечение", () -> calc(),
-                "☼", "Освещение", "Световой поток", () -> light());
-        addGridCardRow("⬟", "Безопасность", "Правила и защита", () -> safety(),
-                "▤", "Справочник", "Формулы и таблицы", () -> reference());
-        actionButton("▣  Мои заказы", () -> ordersPage());
-        // Кнопка «Начать» удалена: разделы открываются через карточки меню.
-        addSpace(8);
-        TextView footer = text("Работай безопасно! Работай с умом!", 13, yellow, true);
-        footer.setGravity(Gravity.CENTER);
-        root.addView(footer, lp(-1, -2));
+        TextView h=text("Знания. Расчёты.\nБезопасность.",24,white,true); h.setGravity(Gravity.CENTER); h.setPadding(0,dp(12),0,dp(20)); root.addView(h,lp(-1,-2));
+        addGridCardRow("▦","Калькулятор\nпроводов","Ток и сечение",()->calc(),"☼","Освещение","Световой поток",()->light());
+        addGridCardRow("⬟","Безопасность","Правила и защита",()->safety(),"▤","Справочник","Формулы и таблицы",()->reference());
+        actionButton("▣  Мои заказы",()->ordersPage()); addSpace(8);
+        TextView f=text("Работай безопасно! Работай с умом!",13,yellow,true); f.setGravity(Gravity.CENTER); root.addView(f,lp(-1,-2));
     }
-
     private void calc() {
-        page("Калькулятор проводов", "Ориентировочный расчёт электрической нагрузки", true);
-        infoCard("Расчёт по току", "Для однофазной нагрузки: I ≈ P / U. Для более точного расчёта учитывайте коэффициент мощности и тип нагрузки.");
-        EditText power = field("Мощность нагрузки (Вт)", "3500");
-        EditText voltage = field("Напряжение (В)", "220");
-        EditText cos = field("Коэффициент мощности cos φ (1 для простого расчёта)", "1");
-        actionButton("▦  Рассчитать ток", () -> {
-            double p = value(power), u = value(voltage), c = value(cos);
-            if (!valid(p, u, c) || p <= 0 || u <= 0 || c <= 0 || c > 1) {
-                message("Введите корректные числа. Мощность и напряжение должны быть больше нуля, cos φ — от 0 до 1.");
-                return;
-            }
-            double current = p / (u * c);
-            resultCard("Расчётный ток", String.format(Locale.getDefault(), "%.2f А", current),
-                    "Это оценка нагрузки, а не готовый подбор кабеля или автомата.");
-        });
-        addSpace(12);
-        infoCard("Падение напряжения", "Падение зависит от материала, сечения, длины линии, тока и схемы сети. Для выбора кабеля используйте действующие нормы и таблицы производителя.");
-        EditText amps = field("Ток нагрузки (А)", "16");
-        EditText length = field("Длина линии в одну сторону (м)", "20");
-        EditText section = field("Сечение медного проводника (мм²)", "2.5");
-        actionButton("Рассчитать падение напряжения", () -> {
-            double current = value(amps), lineLength = value(length), area = value(section);
-            if (!valid(current, lineLength, area) || current < 0 || lineLength <= 0 || area <= 0) {
-                message("Введите корректные значения: ток не может быть отрицательным, длина и сечение должны быть больше нуля.");
-                return;
-            }
-            double drop = 2 * 0.0175 * lineLength * current / area;
-            double percent = drop / 220 * 100;
-            resultCard("Оценочное падение напряжения", String.format(Locale.getDefault(), "%.2f В (%.1f%%)", drop, percent),
-                    "Упрощённая оценка для медной однофазной линии при 220 В; не учитывает нагрев и реактивное сопротивление.");
-        });
-        infoCard("Важно", "Нельзя выбирать сечение только по этому калькулятору. Учитываются способ прокладки, материал, температура, группировка кабелей, длина, защита и местные нормы.");
+        page("Калькулятор проводов","Ориентировочный расчёт электрической нагрузки",true);
+        infoCard("Расчёт по току","Для однофазной нагрузки: I ≈ P / U. Для более точного расчёта учитывайте коэффициент мощности и тип нагрузки.");
+        EditText power=field("Мощность нагрузки (Вт)","3500"), voltage=field("Напряжение (В)","220"), cos=field("Коэффициент мощности cos φ","1");
+        actionButton("▦  Рассчитать ток",()->{ double p=value(power),u=value(voltage),c=value(cos); if(!valid(p,u,c)||p<=0||u<=0||c<=0||c>1){message("Введите корректные числа: мощность и напряжение больше нуля, cos φ — от 0 до 1.");return;} resultCard("Расчётный ток",String.format(Locale.getDefault(),"%.2f А",p/(u*c)),"Оценка нагрузки, а не готовый подбор кабеля или автомата."); });
+        addSpace(12); infoCard("Падение напряжения","Учитываются материал, сечение, длина линии, ток, схема сети и условия монтажа.");
+        EditText amps=field("Ток нагрузки (А)","16"), length=field("Длина в одну сторону (м)","20"), section=field("Сечение медного проводника (мм²)","2.5");
+        actionButton("Рассчитать падение напряжения",()->{double a=value(amps),l=value(length),s=value(section);if(!valid(a,l,s)||a<0||l<=0||s<=0){message("Введите корректные значения.");return;}double d=2*.0175*l*a/s;resultCard("Оценочное падение напряжения",String.format(Locale.getDefault(),"%.2f В (%.1f%%)",d,d/220*100),"Упрощённая оценка для медной однофазной линии при 220 В.");});
+        infoCard("Важно","Не выбирайте сечение только по этому калькулятору. Учитывайте способ прокладки, температуру, группировку, защиту и действующие нормы.");
     }
-
     private void light() {
-        page("Освещение", "Быстрый ориентировочный расчёт", true);
-        EditText area = field("Площадь помещения (м²)", "20");
-        EditText lux = field("Требуемая освещённость (лк)", "300");
-        EditText watts = field("Мощность одного светильника (Вт)", "12");
-        EditText lumens = field("Световой поток одного светильника (лм)", "1200");
-        actionButton("☼  Рассчитать освещение", () -> {
-            double roomArea = value(area), illumination = value(lux), power = value(watts), flux = value(lumens);
-            if (!valid(roomArea, illumination, power, flux) || roomArea <= 0 || illumination <= 0 || power <= 0 || flux <= 0) {
-                message("Все значения должны быть больше нуля.");
-                return;
-            }
-            double needed = roomArea * illumination;
-            int count = (int) Math.ceil(needed / flux);
-            resultCard("Ориентировочно светильников", String.valueOf(count),
-                    String.format(Locale.getDefault(), "Суммарный поток: %.0f лм\nОриентировочная мощность: %.0f Вт", count * flux, count * power));
-        });
-        infoCard("Примечание", "Расчёт не учитывает коэффициент использования, высоту монтажа, загрязнение и отражение поверхностей. Для рабочего проекта требуется светотехнический расчёт.");
+        page("Освещение","Быстрый ориентировочный расчёт",true);
+        EditText area=field("Площадь помещения (м²)","20"), lux=field("Освещённость (лк)","300"), watts=field("Мощность светильника (Вт)","12"), lumens=field("Световой поток светильника (лм)","1200");
+        actionButton("☼  Рассчитать освещение",()->{double a=value(area),l=value(lux),w=value(watts),f=value(lumens);if(!valid(a,l,w,f)||a<=0||l<=0||w<=0||f<=0){message("Все значения должны быть больше нуля.");return;}int n=(int)Math.ceil(a*l/f);resultCard("Ориентировочно светильников",String.valueOf(n),String.format(Locale.getDefault(),"Суммарный поток: %.0f лм\nМощность: %.0f Вт",n*f,n*w));});
+        infoCard("Примечание","Расчёт не учитывает коэффициент использования, высоту монтажа, загрязнение и отражение поверхностей.");
     }
-
     private void safety() {
-        page("Безопасность", "Основные правила перед началом работ", true);
-        infoCard("⚠  Отключите питание", "Отключите нужную цепь, исключите случайное повторное включение и обозначьте место работ.");
-        infoCard("✓  Проверьте отсутствие напряжения", "Используйте исправный двухполюсный указатель и проверьте его работу до и после проверки цепи.");
-        infoCard("⬟  Используйте СИЗ", "Подбирайте защитные очки, перчатки, инструмент и одежду под конкретную работу и оценённый риск.");
-        infoCard("＋  Первая помощь", "При поражении током сначала безопасно отключите питание. Не касайтесь пострадавшего, пока источник опасности не устранён. Вызовите экстренную помощь.");
-        infoCard("⛨  Защитные устройства", "Автоматы, УЗО, заземление и сечения проводников выбирают по проекту, условиям установки и действующим нормам.");
-        infoCard("Важно", "Не выполняйте работы под напряжением без специальной квалификации, допуска и соответствующих процедур.");
+        page("Безопасность","Основные правила перед началом работ",true);
+        infoCard("⚠  Отключите питание","Отключите нужную цепь, исключите случайное повторное включение и обозначьте место работ.");
+        infoCard("✓  Проверьте отсутствие напряжения","Используйте исправный двухполюсный указатель и проверьте его работу до и после проверки цепи.");
+        infoCard("⬟  Используйте СИЗ","Подбирайте защитные очки, перчатки, инструмент и одежду под конкретную работу и оценённый риск.");
+        infoCard("＋  Первая помощь","Сначала безопасно отключите питание. Не касайтесь пострадавшего, пока источник опасности не устранён. Вызовите экстренную помощь.");
+        infoCard("⛨  Защитные устройства","Автоматы, УЗО, заземление и сечения проводников выбирают по проекту, условиям установки и действующим нормам.");
     }
-
     private void reference() {
-        page("Справочник", "Базовые формулы и справочные значения", true);
-        infoCard("Закон Ома", "I = U / R\nТок (А) равен напряжению (В), делённому на сопротивление (Ом).");
-        infoCard("Электрическая мощность", "P = U × I\nДля переменного тока и реальной нагрузки учитывайте cos φ: P ≈ U × I × cos φ.");
-        infoCard("Сопротивление", "R = U / I\nСопротивление измеряется в омах (Ω).");
-        infoCard("Падение напряжения", "Для простой однофазной медной линии ориентировочно: ΔU ≈ 2 × 0,0175 × L × I / S, где L — длина в одну сторону (м), I — ток (А), S — сечение (мм²).");
-        infoCard("Сечение кабеля — не выбирайте только по току", "Допустимый ток зависит от способа прокладки, изоляции, температуры, количества нагруженных жил, группировки, материала и защитного аппарата. Используйте действующие таблицы ПУЭ/местных норм и данные производителя.");
-        infoCard("Цвета проводников", "Защитный PE обычно жёлто-зелёный; нейтральный N — голубой. Цвета и назначение необходимо проверять по схеме и нормам конкретной установки, не полагаться только на цвет.");
+        page("Справочник","Базовые формулы и справочные значения",true);
+        infoCard("Закон Ома","I = U / R\nТок равен напряжению, делённому на сопротивление.");
+        infoCard("Электрическая мощность","P = U × I\nДля реальной нагрузки переменного тока учитывайте cos φ.");
+        infoCard("Падение напряжения","Для простой однофазной медной линии: ΔU ≈ 2 × 0,0175 × L × I / S.");
+        infoCard("Цвета проводников","PE обычно жёлто-зелёный; N — голубой. Проверяйте назначение по схеме и нормам, не только по цвету.");
     }
 
-
-    // -------------------- МОИ ЗАКАЗЫ --------------------
-
+    // Заказы: работы и материалы хранятся отдельно.
     private void loadOrders() {
         orders.clear();
-        String raw = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getString(ORDERS_KEY, "[]");
+        String raw=getSharedPreferences(PREFS_NAME,MODE_PRIVATE).getString(ORDERS_KEY,"[]");
         try {
-            JSONArray array = new JSONArray(raw);
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject obj = array.getJSONObject(i);
-                Order order = new Order(obj.optString("name", "Новый заказ"));
-                order.executorDetails = obj.optString("executorDetails", "");
-                order.customerDetails = obj.optString("customerDetails", "");
-                order.address = obj.optString("address", "");
-                JSONArray lines = obj.optJSONArray("lines");
-                if (lines != null) {
-                    for (int j = 0; j < lines.length(); j++) {
-                        JSONObject line = lines.getJSONObject(j);
-                        order.lines.add(new WorkLine(
-                                line.optString("name", ""),
-                                line.optDouble("quantity", 0),
-                                line.optDouble("price", 0)));
-                    }
-                }
+            JSONArray a=new JSONArray(raw);
+            for(int i=0;i<a.length();i++){
+                JSONObject o=a.getJSONObject(i); Order order=new Order(o.optString("name","Новый заказ"));
+                order.executorDetails=o.optString("executorDetails",""); order.customerDetails=o.optString("customerDetails",""); order.address=o.optString("address","");
+                readLines(o.optJSONArray("lines"),order.works); // совместимость со старой версией
+                readLines(o.optJSONArray("works"),order.works);
+                readLines(o.optJSONArray("materials"),order.materials);
                 orders.add(order);
             }
-        } catch (Exception ignored) {
-            orders.clear();
-        }
+        } catch(Exception ignored){orders.clear();}
     }
-
+    private void readLines(JSONArray a,List<Line> target) {
+        if(a==null)return;
+        for(int i=0;i<a.length();i++)try{JSONObject x=a.getJSONObject(i);target.add(new Line(x.optString("name",""),x.optDouble("quantity",0),x.optDouble("price",0)));}catch(Exception ignored){}
+    }
+    private JSONArray linesJson(List<Line> lines) throws Exception {
+        JSONArray a=new JSONArray(); for(Line l:lines){JSONObject x=new JSONObject();x.put("name",l.name);x.put("quantity",l.quantity);x.put("price",l.price);a.put(x);} return a;
+    }
     private void saveOrders() {
-        JSONArray array = new JSONArray();
-        try {
-            for (Order order : orders) {
-                JSONObject obj = new JSONObject();
-                obj.put("name", order.name);
-                obj.put("executorDetails", order.executorDetails);
-                obj.put("customerDetails", order.customerDetails);
-                obj.put("address", order.address);
-                JSONArray lines = new JSONArray();
-                for (WorkLine line : order.lines) {
-                    JSONObject item = new JSONObject();
-                    item.put("name", line.name);
-                    item.put("quantity", line.quantity);
-                    item.put("price", line.price);
-                    lines.put(item);
-                }
-                obj.put("lines", lines);
-                array.put(obj);
-            }
-        } catch (Exception ignored) {
-            message("Не удалось сохранить заказы. Попробуйте ещё раз.");
-            return;
-        }
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-                .putString(ORDERS_KEY, array.toString()).apply();
+        JSONArray a=new JSONArray();
+        try { for(Order o:orders){JSONObject x=new JSONObject();x.put("name",o.name);x.put("executorDetails",o.executorDetails);x.put("customerDetails",o.customerDetails);x.put("address",o.address);x.put("works",linesJson(o.works));x.put("materials",linesJson(o.materials));a.put(x);} }
+        catch(Exception e){message("Не удалось сохранить заказы.");return;}
+        getSharedPreferences(PREFS_NAME,MODE_PRIVATE).edit().putString(ORDERS_KEY,a.toString()).apply();
     }
-
-    private String money(double amount) {
-        return String.format(Locale.getDefault(), "%,.2f", amount).replace('\u00a0', ' ');
-    }
-
-    private String number(double amount) {
-        if (Math.abs(amount - Math.rint(amount)) < 0.000001) {
-            return String.format(Locale.getDefault(), "%.0f", amount);
-        }
-        return String.format(Locale.getDefault(), "%.2f", amount);
-    }
-
+    private String money(double a){return String.format(Locale.getDefault(),"%,.2f",a).replace('\u00a0',' ');}
+    private String number(double a){return Math.abs(a-Math.rint(a))<.000001?String.format(Locale.getDefault(),"%.0f",a):String.format(Locale.getDefault(),"%.2f",a);}
     private void ordersPage() {
-        page("Мои заказы", "Создавайте сметы на работы и редактируйте их в любое время", true);
-        actionButton("＋  Создать заказ", () -> {
-            Order order = new Order("Новый заказ");
-            orderEditor(order, -1);
-        });
-
-        if (orders.isEmpty()) {
-            addSpace(12);
-            infoCard("Пока нет заказов", "Нажмите «Создать заказ». Добавляйте строки работ, указывайте количество или длину и цену за единицу. Сумма каждой строки и общий итог посчитаются автоматически.");
-            return;
-        }
-
-        for (int i = 0; i < orders.size(); i++) {
-            final int index = i;
-            Order order = orders.get(i);
-            LinearLayout card = column();
-            card.setPadding(dp(14), dp(14), dp(14), dp(14));
-            card.setBackground(bg(panel, 13));
-            card.addView(text(order.name, 18, white, true));
-            card.addView(text(order.lines.size() + " строк работ", 13, muted, false));
-            TextView total = text("Итого: " + money(order.total()), 20, yellow, true);
-            total.setPadding(0, dp(8), 0, dp(6));
-            card.addView(total);
-            LinearLayout buttons = new LinearLayout(this);
-            buttons.setOrientation(LinearLayout.HORIZONTAL);
-            TextView edit = smallButton("Открыть / изменить");
-            TextView delete = smallButton("Удалить");
-            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, dp(44), 1);
-            bp.rightMargin = dp(5);
-            buttons.addView(edit, bp);
-            LinearLayout.LayoutParams dp2 = new LinearLayout.LayoutParams(0, dp(44), 1);
-            dp2.leftMargin = dp(5);
-            buttons.addView(delete, dp2);
-            edit.setOnClickListener(v -> orderEditor(orders.get(index), index));
-            delete.setOnClickListener(v -> new AlertDialog.Builder(this)
-                    .setTitle("Удалить заказ?")
-                    .setMessage("Заказ «" + orders.get(index).name + "» будет удалён.")
-                    .setNegativeButton("Отмена", null)
-                    .setPositiveButton("Удалить", (dialog, which) -> {
-                        orders.remove(index);
-                        saveOrders();
-                        ordersPage();
-                    }).show());
-            card.addView(buttons);
-            LinearLayout.LayoutParams cp = lp(-1, -2);
-            cp.bottomMargin = dp(10);
-            root.addView(card, cp);
+        page("Мои заказы","Сметы на работы и материалы",true);
+        actionButton("＋  Создать заказ",()->orderEditor(new Order("Новый заказ"),-1));
+        if(orders.isEmpty()){addSpace(12);infoCard("Пока нет заказов","Создайте заказ, добавьте работы и материалы. Стоимость строк и общий итог рассчитываются автоматически.");return;}
+        for(int i=0;i<orders.size();i++){
+            final int idx=i;Order o=orders.get(i);LinearLayout c=column();c.setPadding(dp(14),dp(14),dp(14),dp(14));c.setBackground(bg(panel,13));
+            c.addView(text(o.name,18,white,true));c.addView(text("Работ: "+o.works.size()+" • Материалов: "+o.materials.size(),13,muted,false));
+            TextView total=text("Итого: "+money(o.total()),20,yellow,true);total.setPadding(0,dp(8),0,dp(6));c.addView(total);
+            LinearLayout row=new LinearLayout(this);TextView edit=smallButton("Открыть / изменить"),del=smallButton("Удалить");
+            LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(0,dp(44),1);p1.rightMargin=dp(5);row.addView(edit,p1);
+            LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(0,dp(44),1);p2.leftMargin=dp(5);row.addView(del,p2);
+            edit.setOnClickListener(v->orderEditor(orders.get(idx),idx));
+            del.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Удалить заказ?").setMessage("Заказ «"+orders.get(idx).name+"» будет удалён.")
+                .setNegativeButton("Отмена",null).setPositiveButton("Удалить",(d,w)->{orders.remove(idx);saveOrders();ordersPage();}).show());
+            c.addView(row);LinearLayout.LayoutParams cp=lp(-1,-2);cp.bottomMargin=dp(10);root.addView(c,cp);
         }
     }
-
-    private TextView smallButton(String label) {
-        TextView button = text(label, 13, navy, true);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(5), dp(6), dp(5), dp(6));
-        button.setBackground(bg(yellow, 9));
-        return button;
-    }
-
-    private void orderEditor(Order order, int existingIndex) {
-        page("Заказ", "Добавьте работы — стоимость считается автоматически", true);
-        EditText orderName = field("Название сметы / объекта", order.name);
-        EditText executorDetails = field("Исполнитель: имя, телефон, реквизиты", order.executorDetails);
-        EditText customerDetails = field("Заказчик: имя, телефон, реквизиты", order.customerDetails);
-        EditText address = field("Адрес объекта", order.address);
-        actionButton("＋  Добавить строку работ", () -> {
-            copyOrderFields(order, orderName, executorDetails, customerDetails, address);
-            lineDialog(order, -1, orderName.getText().toString());
-        });
-        TextView totalView = text("", 22, yellow, true);
-        totalView.setPadding(0, dp(12), 0, dp(10));
-        root.addView(totalView, lp(-1, -2));
-
-        LinearLayout linesContainer = column();
-        root.addView(linesContainer, lp(-1, -2));
-
-        final Runnable[] refresh = new Runnable[1];
-        refresh[0] = () -> {
-            linesContainer.removeAllViews();
-            if (order.lines.isEmpty()) {
-                TextView empty = text("Строк работ пока нет. Нажмите «Добавить строку работ».", 14, muted, false);
-                empty.setPadding(0, dp(8), 0, dp(8));
-                linesContainer.addView(empty);
-            }
-            for (int i = 0; i < order.lines.size(); i++) {
-                final int lineIndex = i;
-                WorkLine line = order.lines.get(i);
-                LinearLayout card = column();
-                card.setPadding(dp(12), dp(12), dp(12), dp(12));
-                card.setBackground(bg(panel, 11));
-                card.addView(text(line.name, 16, white, true));
-                card.addView(text("Количество / длина: " + number(line.quantity), 13, muted, false));
-                card.addView(text("Цена за единицу: " + money(line.price), 13, muted, false));
-                card.addView(text("Сумма за работу: " + money(line.total()), 17, yellow, true));
-                LinearLayout row = new LinearLayout(this);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                TextView edit = smallButton("Изменить");
-                TextView delete = smallButton("Удалить строку");
-                LinearLayout.LayoutParams e = new LinearLayout.LayoutParams(0, dp(40), 1);
-                e.rightMargin = dp(5);
-                row.addView(edit, e);
-                LinearLayout.LayoutParams d = new LinearLayout.LayoutParams(0, dp(40), 1);
-                d.leftMargin = dp(5);
-                row.addView(delete, d);
-                edit.setOnClickListener(v -> {
-                    copyOrderFields(order, orderName, executorDetails, customerDetails, address);
-                    lineDialog(order, lineIndex, orderName.getText().toString());
-                });
-                delete.setOnClickListener(v -> new AlertDialog.Builder(this)
-                        .setTitle("Удалить строку?")
-                        .setMessage(line.name)
-                        .setNegativeButton("Отмена", null)
-                        .setPositiveButton("Удалить", (dialog, which) -> {
-                            order.lines.remove(lineIndex);
-                            refresh[0].run();
-                        }).show());
-                card.addView(row);
-                LinearLayout.LayoutParams p = lp(-1, -2);
-                p.bottomMargin = dp(8);
-                linesContainer.addView(card, p);
-            }
-            totalView.setText("ИТОГО ЗА ЗАКАЗ: " + money(order.total()));
+    private TextView smallButton(String label){TextView b=text(label,13,navy,true);b.setGravity(Gravity.CENTER);b.setPadding(dp(5),dp(6),dp(5),dp(6));b.setBackground(bg(yellow,9));return b;}
+    private void orderEditor(Order o,int existingIndex) {
+        page("Заказ","Отдельный расчёт стоимости работ и материалов",true);
+        EditText orderName=field("Название сметы / объекта",o.name),executor=field("Исполнитель: имя, телефон, реквизиты",o.executorDetails),
+                customer=field("Заказчик: имя, телефон, реквизиты",o.customerDetails),address=field("Адрес объекта",o.address);
+        actionButton("＋  Добавить строку работ",()->{copyFields(o,orderName,executor,customer,address);lineDialog(o,false,-1);});
+        LinearLayout worksBox=column();root.addView(worksBox,lp(-1,-2));
+        TextView workTotal=text("",18,white,true);root.addView(workTotal,lp(-1,-2));
+        actionButton("＋  Добавить материал",()->{copyFields(o,orderName,executor,customer,address);lineDialog(o,true,-1);});
+        LinearLayout materialsBox=column();root.addView(materialsBox,lp(-1,-2));
+        TextView materialTotal=text("",18,white,true);root.addView(materialTotal,lp(-1,-2));
+        TextView grand=text("",23,yellow,true);grand.setPadding(0,dp(12),0,dp(12));root.addView(grand,lp(-1,-2));
+        Runnable refresh=()->{
+            fillLineCards(worksBox,o,false,()->orderEditor(o,findOrderIndex(o)));
+            fillLineCards(materialsBox,o,true,()->orderEditor(o,findOrderIndex(o)));
+            workTotal.setText("ИТОГО РАБОТ: "+money(o.workTotal()));
+            materialTotal.setText("ИТОГО МАТЕРИАЛОВ: "+money(o.materialTotal()));
+            grand.setText("ИТОГО ЗА ЗАКАЗ: "+money(o.total()));
         };
-        refresh[0].run();
-
-        actionButton("▤  Создать PDF сметы", () -> {
-            String name = orderName.getText().toString().trim();
-            if (name.isEmpty()) {
-                message("Сначала введите название заказа.");
-                return;
-            }
-            if (order.lines.isEmpty()) {
-                message("Добавьте хотя бы одну строку работ перед созданием PDF.");
-                return;
-            }
-            order.name = name;
-            order.executorDetails = executorDetails.getText().toString().trim();
-            order.customerDetails = customerDetails.getText().toString().trim();
-            order.address = address.getText().toString().trim();
-            createEstimatePdf(order);
+        refresh.run();
+        actionButton("▤  Создать PDF сметы",()->{
+            copyFields(o,orderName,executor,customer,address);
+            if(o.works.isEmpty()&&o.materials.isEmpty()){message("Добавьте хотя бы одну строку работ или материалов.");return;}
+            if(o.name.isEmpty()){message("Сначала введите название заказа.");return;}
+            createEstimatePdf(o);
         });
-
-        actionButton("Сохранить заказ", () -> {
-            String name = orderName.getText().toString().trim();
-            if (name.isEmpty()) {
-                message("Введите название заказа или объекта.");
-                return;
-            }
-            if (order.lines.isEmpty()) {
-                new AlertDialog.Builder(this)
-                        .setTitle("В заказе нет работ")
-                        .setMessage("Сохранить заказ без строк работ?")
-                        .setNegativeButton("Вернуться", null)
-                        .setPositiveButton("Сохранить", (dialog, which) -> {
-                            order.name = name;
-                            order.executorDetails = executorDetails.getText().toString().trim();
-                            order.customerDetails = customerDetails.getText().toString().trim();
-                            order.address = address.getText().toString().trim();
-                            persistOrder(order, existingIndex);
-                        }).show();
-                return;
-            }
-            order.name = name;
-            order.executorDetails = executorDetails.getText().toString().trim();
-            order.customerDetails = customerDetails.getText().toString().trim();
-            order.address = address.getText().toString().trim();
-            persistOrder(order, existingIndex);
+        actionButton("Сохранить заказ",()->{
+            copyFields(o,orderName,executor,customer,address);
+            if(o.name.isEmpty()){message("Введите название заказа или объекта.");return;}
+            persistOrder(o,existingIndex);
         });
     }
-
-    private void copyOrderFields(Order order, EditText orderName, EditText executorDetails,
-                                 EditText customerDetails, EditText address) {
-        order.name = orderName.getText().toString().trim();
-        order.executorDetails = executorDetails.getText().toString().trim();
-        order.customerDetails = customerDetails.getText().toString().trim();
-        order.address = address.getText().toString().trim();
+    private void copyFields(Order o,EditText name,EditText executor,EditText customer,EditText address){
+        o.name=name.getText().toString().trim();o.executorDetails=executor.getText().toString().trim();
+        o.customerDetails=customer.getText().toString().trim();o.address=address.getText().toString().trim();
     }
-
-    private void persistOrder(Order order, int existingIndex) {
-        order.name = order.name.trim();
-        if (existingIndex >= 0 && existingIndex < orders.size()) {
-            orders.set(existingIndex, order);
-        } else {
-            orders.add(order);
+    private void fillLineCards(LinearLayout box,Order o,boolean material,Runnable reopen){
+        box.removeAllViews();List<Line> lines=material?o.materials:o.works;
+        TextView heading=text(material?"МАТЕРИАЛЫ":"РАБОТЫ",15,yellow,true);heading.setPadding(0,dp(8),0,dp(5));box.addView(heading);
+        if(lines.isEmpty()){TextView empty=text(material?"Материалы пока не добавлены.":"Работы пока не добавлены.",13,muted,false);box.addView(empty);}
+        for(int i=0;i<lines.size();i++){
+            final int idx=i;Line line=lines.get(i);LinearLayout c=column();c.setPadding(dp(12),dp(12),dp(12),dp(12));c.setBackground(bg(panel,11));
+            c.addView(text(line.name,16,white,true));c.addView(text("Количество: "+number(line.quantity),13,muted,false));
+            c.addView(text("Цена за единицу: "+money(line.price),13,muted,false));
+            c.addView(text("Сумма: "+money(line.total()),17,yellow,true));
+            LinearLayout row=new LinearLayout(this);TextView edit=smallButton("Изменить"),del=smallButton("Удалить");
+            LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(0,dp(40),1);p1.rightMargin=dp(5);row.addView(edit,p1);
+            LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(0,dp(40),1);p2.leftMargin=dp(5);row.addView(del,p2);
+            edit.setOnClickListener(v->lineDialog(o,material,idx));del.setOnClickListener(v->new AlertDialog.Builder(this)
+                .setTitle("Удалить строку?").setMessage(line.name).setNegativeButton("Отмена",null)
+                .setPositiveButton("Удалить",(d,w)->{lines.remove(idx);orderEditor(o,findOrderIndex(o));}).show());
+            c.addView(row);LinearLayout.LayoutParams cp=lp(-1,-2);cp.bottomMargin=dp(7);box.addView(c,cp);
         }
-        saveOrders();
-        message("Заказ «" + order.name + "» сохранён.\nИтого: " + money(order.total()));
-        ordersPage();
     }
-
-    private void lineDialog(Order order, int lineIndex, String currentOrderName) {
-        WorkLine old = lineIndex >= 0 && lineIndex < order.lines.size()
-                ? order.lines.get(lineIndex) : null;
-        LinearLayout layout = column();
-        layout.setPadding(dp(18), dp(4), dp(18), dp(4));
-
-        EditText name = dialogField("Название работ", old == null ? "" : old.name);
-        EditText quantity = dialogField("Количество или длина", old == null ? "1" : number(old.quantity));
-        EditText price = dialogField("Цена работы за единицу", old == null ? "0" : number(old.price));
-        TextView calculated = text("Сумма за работу: 0.00", 18, yellow, true);
-        calculated.setPadding(0, dp(10), 0, dp(4));
-        layout.addView(text("Название работ", 13, muted, false));
-        layout.addView(name, lp(-1, 48));
-        layout.addView(text("Количество или длина", 13, muted, false));
-        layout.addView(quantity, lp(-1, 48));
-        layout.addView(text("Цена работы за единицу", 13, muted, false));
-        layout.addView(price, lp(-1, 48));
-        layout.addView(calculated);
-
-        Runnable update = () -> {
-            double q = parseDialogNumber(quantity.getText().toString());
-            double p = parseDialogNumber(price.getText().toString());
-            if (!Double.isNaN(q) && !Double.isInfinite(q) && !Double.isNaN(p) && !Double.isInfinite(p) && q >= 0 && p >= 0) {
-                calculated.setText("Сумма за работу: " + money(q * p));
-            } else {
-                calculated.setText("Сумма за работу: —");
-            }
-        };
-        TextWatcher watcher = new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { update.run(); }
-            @Override public void afterTextChanged(Editable s) {}
-        };
-        quantity.addTextChangedListener(watcher);
-        price.addTextChangedListener(watcher);
-        update.run();
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(old == null ? "Новая строка работ" : "Изменить строку")
-                .setView(layout)
-                .setNegativeButton("Отмена", null)
-                .setPositiveButton("Сохранить строку", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String workName = name.getText().toString().trim();
-            double q = parseDialogNumber(quantity.getText().toString());
-            double p = parseDialogNumber(price.getText().toString());
-            if (workName.isEmpty()) {
-                message("Введите название работ.");
-                return;
-            }
-            if (Double.isNaN(q) || Double.isInfinite(q) || Double.isNaN(p) || Double.isInfinite(p) || q <= 0 || p < 0) {
-                message("Количество или длина должны быть больше нуля, цена не может быть отрицательной.");
-                return;
-            }
-            WorkLine line = new WorkLine(workName, q, p);
-            if (lineIndex >= 0 && lineIndex < order.lines.size()) order.lines.set(lineIndex, line);
-            else order.lines.add(line);
-            dialog.dismiss();
-            orderEditor(order, findOrderIndex(order));
+    private void persistOrder(Order o,int existingIndex){
+        if(existingIndex>=0&&existingIndex<orders.size())orders.set(existingIndex,o);else orders.add(o);
+        saveOrders();message("Заказ «"+o.name+"» сохранён.\nРаботы: "+money(o.workTotal())+"\nМатериалы: "+money(o.materialTotal())+"\nИтого: "+money(o.total()));ordersPage();
+    }
+    private int findOrderIndex(Order o){for(int i=0;i<orders.size();i++)if(orders.get(i)==o)return i;return -1;}
+    private void lineDialog(Order o,boolean material,int index){
+        List<Line> lines=material?o.materials:o.works;Line old=index>=0&&index<lines.size()?lines.get(index):null;
+        LinearLayout layout=column();layout.setPadding(dp(18),dp(4),dp(18),dp(4));
+        EditText name=dialogField(material?"Название материала":"Название работ",old==null?"":old.name);
+        EditText quantity=dialogField("Количество или длина",old==null?"1":number(old.quantity));
+        EditText price=dialogField(material?"Цена материала за единицу":"Цена работы за единицу",old==null?"0":number(old.price));
+        TextView calculated=text("Сумма: 0.00",18,yellow,true);calculated.setPadding(0,dp(10),0,dp(4));
+        layout.addView(name,lp(-1,48));layout.addView(quantity,lp(-1,48));layout.addView(price,lp(-1,48));layout.addView(calculated);
+        Runnable update=()->{double q=parseNumber(quantity.getText().toString()),p=parseNumber(price.getText().toString());
+            calculated.setText(valid(q,p)&&q>=0&&p>=0?"Сумма: "+money(q*p):"Сумма: —");};
+        TextWatcher watcher=new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int c,int a){}public void onTextChanged(CharSequence s,int st,int before,int count){update.run();}public void afterTextChanged(Editable e){}};
+        quantity.addTextChangedListener(watcher);price.addTextChangedListener(watcher);update.run();
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(old==null?(material?"Новый материал":"Новая строка работ"):"Изменить строку")
+            .setView(layout).setNegativeButton("Отмена",null).setPositiveButton("Сохранить",null).create();
+        dialog.setOnShowListener(v->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view->{
+            String n=name.getText().toString().trim();double q=parseNumber(quantity.getText().toString()),p=parseNumber(price.getText().toString());
+            if(n.isEmpty()){message(material?"Введите название материала.":"Введите название работ.");return;}
+            if(!valid(q,p)||q<=0||p<0){message("Количество должно быть больше нуля, цена не может быть отрицательной.");return;}
+            Line l=new Line(n,q,p);if(index>=0&&index<lines.size())lines.set(index,l);else lines.add(l);
+            dialog.dismiss();orderEditor(o,findOrderIndex(o));
         }));
         dialog.show();
     }
-
-    private int findOrderIndex(Order order) {
-        for (int i = 0; i < orders.size(); i++) {
-            if (orders.get(i) == order) return i;
-        }
-        return -1;
+    private EditText dialogField(String label,String initial){
+        EditText e=new EditText(this);e.setSingleLine(true);e.setText(initial);e.setHint(label);e.setTextColor(white);e.setHintTextColor(muted);e.setTextSize(16);
+        e.setPadding(dp(12),dp(8),dp(12),dp(8));e.setBackground(bg(panel2,9));
+        if(label.startsWith("Название"))e.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        else e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        LinearLayout.LayoutParams p=lp(-1,48);p.topMargin=dp(5);p.bottomMargin=dp(5);return e;
     }
-
-    private EditText dialogField(String label, String initialValue) {
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setText(initialValue);
-        input.setHint(label);
-        input.setTextColor(white);
-        input.setHintTextColor(muted);
-        input.setTextSize(16);
-        input.setPadding(dp(12), dp(8), dp(12), dp(8));
-        input.setBackground(bg(panel2, 9));
-        if (label.equals("Название работ")) {
-            input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                    | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        } else {
-            input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
-                    | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        }
-        LinearLayout.LayoutParams p = lp(-1, 48);
-        p.topMargin = dp(5);
-        p.bottomMargin = dp(5);
-        layoutLabelHint(input, label);
-        return input;
-    }
-
-    private void layoutLabelHint(EditText input, String label) {
-        input.setHint(label);
-    }
-
-    private double parseDialogNumber(String raw) {
-        try {
-            if (raw == null || raw.trim().isEmpty()) return Double.NaN;
-            return Double.parseDouble(raw.trim().replace(',', '.'));
-        } catch (Exception ignored) {
-            return Double.NaN;
-        }
-    }
-
+    private double parseNumber(String raw){try{if(raw==null||raw.trim().isEmpty())return Double.NaN;return Double.parseDouble(raw.trim().replace(',','.'));}catch(Exception e){return Double.NaN;}}
 
     private void createEstimatePdf(Order order) {
-        PdfDocument document = new PdfDocument();
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        final int pageWidth = 595;
-        final int pageHeight = 842;
-        final int left = 42;
-        final int right = 553;
-        final int rowHeight = 42;
-        int pageNumber = 0;
-        PdfDocument.Page page = null;
-        Canvas canvas = null;
-        int y = 0;
-
+        PdfDocument doc=new PdfDocument();Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        final int W=595,H=842,left=42,right=553;PdfDocument.Page page=null;Canvas canvas=null;int y=0,pageNo=0;
         try {
-            for (int i = 0; i < order.lines.size(); i++) {
-                if (page == null || y > pageHeight - 100) {
-                    if (page != null) document.finishPage(page);
-                    pageNumber++;
-                    PdfDocument.PageInfo info = new PdfDocument.PageInfo.Builder(
-                            pageWidth, pageHeight, pageNumber).create();
-                    page = document.startPage(info);
-                    canvas = page.getCanvas();
-                    y = 48;
-
-                    paint.setColor(Color.rgb(4, 20, 39));
-                    paint.setTextSize(22);
-                    paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-                    canvas.drawText("ЭЛЕКТРИК PRO", left, y, paint);
-                    y += 28;
-
-                    paint.setColor(Color.rgb(30, 60, 90));
-                    paint.setTextSize(17);
-                    canvas.drawText("СМЕТА НА РАБОТЫ", left, y, paint);
-                    y += 28;
-
-                    paint.setColor(Color.BLACK);
-                    paint.setTextSize(12);
-                    paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-                    canvas.drawText("Заказ: " + pdfSafe(order.name), left, y, paint);
-                    y += 18;
-                    canvas.drawText("Дата: " + new java.text.SimpleDateFormat(
-                            "dd.MM.yyyy", Locale.getDefault()).format(new java.util.Date()), left, y, paint);
-                    y += 18;
-                    if (!order.executorDetails.trim().isEmpty()) {
-                        canvas.drawText("Исполнитель: " + clipText(order.executorDetails, 78), left, y, paint);
-                        y += 16;
-                    }
-                    if (!order.customerDetails.trim().isEmpty()) {
-                        canvas.drawText("Заказчик: " + clipText(order.customerDetails, 78), left, y, paint);
-                        y += 16;
-                    }
-                    if (!order.address.trim().isEmpty()) {
-                        canvas.drawText("Адрес объекта: " + clipText(order.address, 78), left, y, paint);
-                        y += 16;
-                    }
-                    y += 9;
-
-                    paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-                    paint.setTextSize(10);
-                    canvas.drawText("№", left, y, paint);
-                    canvas.drawText("Наименование работ", left + 28, y, paint);
-                    canvas.drawText("Кол-во", 335, y, paint);
-                    canvas.drawText("Цена", 405, y, paint);
-                    canvas.drawText("Сумма", 475, y, paint);
-                    y += 8;
-                    paint.setStrokeWidth(1);
-                    canvas.drawLine(left, y, right, y, paint);
-                    y += 20;
-                    paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-                }
-
-                WorkLine line = order.lines.get(i);
-                paint.setTextSize(10);
-                paint.setColor(Color.BLACK);
-                canvas.drawText(String.valueOf(i + 1), left, y, paint);
-                canvas.drawText(clipText(line.name, 36), left + 28, y, paint);
-                canvas.drawText(number(line.quantity), 335, y, paint);
-                canvas.drawText(money(line.price), 405, y, paint);
-                canvas.drawText(money(line.total()), 475, y, paint);
-                y += rowHeight;
-                paint.setColor(Color.LTGRAY);
-                canvas.drawLine(left, y - 17, right, y - 17, paint);
-                paint.setColor(Color.BLACK);
+            pageNo++;page=doc.startPage(new PdfDocument.PageInfo.Builder(W,H,pageNo).create());canvas=page.getCanvas();y=48;
+            y=pdfHeader(canvas,p,order,left,y);
+            y=drawPdfLines(doc,page,canvas,p,order.works,false,left,right,y,pageNo);
+            // После возможного перехода страницы возвращаем текущую страницу/номер через отдельный универсальный рендер ниже.
+            doc.finishPage(page);page=null;
+            // Формируем отдельные аккуратные страницы для материалов и итогов, чтобы таблицы не обрезались.
+            if(!order.materials.isEmpty()){
+                pageNo++;page=doc.startPage(new PdfDocument.PageInfo.Builder(W,H,pageNo).create());canvas=page.getCanvas();y=48;
+                p.setColor(navy);p.setTextSize(19);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));canvas.drawText("ЭЛЕКТРИК PRO — СМЕТА",left,y,p);y+=32;
+                p.setColor(Color.BLACK);p.setTextSize(14);canvas.drawText("МАТЕРИАЛЫ",left,y,p);y+=25;
+                y=drawTableOnPage(canvas,p,order.materials,left,right,y);
+                y+=24;p.setTextSize(13);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
+                canvas.drawText("Итого материалов: "+money(order.materialTotal()),left,y,p);
+                doc.finishPage(page);page=null;
             }
-
-            if (page == null) {
-                PdfDocument.PageInfo info = new PdfDocument.PageInfo.Builder(
-                        pageWidth, pageHeight, 1).create();
-                page = document.startPage(info);
-                canvas = page.getCanvas();
-                y = 48;
-                paint.setColor(Color.rgb(4, 20, 39));
-                paint.setTextSize(22);
-                paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-                canvas.drawText("ЭЛЕКТРИК PRO", left, y, paint);
-                y += 35;
+            pageNo++;page=doc.startPage(new PdfDocument.PageInfo.Builder(W,H,pageNo).create());canvas=page.getCanvas();y=70;
+            p.setColor(navy);p.setTextSize(20);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));canvas.drawText("ИТОГОВАЯ СТОИМОСТЬ",left,y,p);y+=40;
+            p.setColor(Color.BLACK);p.setTextSize(14);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.NORMAL));
+            canvas.drawText("Работы: "+money(order.workTotal()),left,y,p);y+=25;
+            canvas.drawText("Материалы: "+money(order.materialTotal()),left,y,p);y+=32;
+            p.setTextSize(18);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));canvas.drawText("ИТОГО ЗА ЗАКАЗ: "+money(order.total()),left,y,p);y+=65;
+            p.setTextSize(10);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.NORMAL));
+            canvas.drawText("Исполнитель: ____________________________",left,y,p);canvas.drawText("Заказчик: ______________________________",left+270,y,p);y+=32;
+            canvas.drawText("Подпись: _________________________________",left,y,p);canvas.drawText("Подпись: ________________________________",left+270,y,p);y+=30;
+            canvas.drawText("Документ сформирован приложением Электрик PRO",left,y,p);
+            doc.finishPage(page);page=null;
+            String fileName=safeFileName(order.name)+"_"+new SimpleDateFormat("yyyyMMdd_HHmm",Locale.getDefault()).format(new Date())+".pdf";
+            OutputStream out;
+            if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q){
+                ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,fileName);values.put(MediaStore.Downloads.MIME_TYPE,"application/pdf");
+                values.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/ElectricPRO");
+                Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);if(uri==null)throw new java.io.IOException("Не удалось создать PDF-файл");
+                out=getContentResolver().openOutputStream(uri);
+            }else{
+                File dir=getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);if(dir==null)throw new java.io.IOException("Папка документов недоступна");
+                if(!dir.exists()&&!dir.mkdirs())throw new java.io.IOException("Не удалось создать папку документов");out=new FileOutputStream(new File(dir,fileName));
             }
-
-            if (y > pageHeight - 75) {
-                document.finishPage(page);
-                pageNumber++;
-                PdfDocument.PageInfo info = new PdfDocument.PageInfo.Builder(
-                        pageWidth, pageHeight, pageNumber).create();
-                page = document.startPage(info);
-                canvas = page.getCanvas();
-                y = 55;
-            }
-
-            y += 4;
-            paint.setColor(Color.BLACK);
-            paint.setTextSize(14);
-            paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-            canvas.drawText("ИТОГО: " + money(order.total()), left, y, paint);
-            y += 42;
-
-            if (y > pageHeight - 145) {
-                document.finishPage(page);
-                pageNumber++;
-                PdfDocument.PageInfo info = new PdfDocument.PageInfo.Builder(
-                        pageWidth, pageHeight, pageNumber).create();
-                page = document.startPage(info);
-                canvas = page.getCanvas();
-                y = 65;
-            }
-
-            paint.setTextSize(10);
-            paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-            canvas.drawText("Исполнитель: ______________________________", left, y, paint);
-            canvas.drawText("Заказчик: ________________________________", left + 270, y, paint);
-            y += 34;
-            canvas.drawText("Подпись: __________________________________", left, y, paint);
-            canvas.drawText("Подпись: __________________________________", left + 270, y, paint);
-            y += 28;
-            paint.setTextSize(9);
-            canvas.drawText("Документ сформирован приложением Электрик PRO", left, y, paint);
-            document.finishPage(page);
-
-            String fileName = safeFileName(order.name) + "_" +
-                    new java.text.SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault())
-                            .format(new java.util.Date()) + ".pdf";
-            OutputStream output = null;
-            Uri savedUri = null;
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
-                values.put(MediaStore.Downloads.RELATIVE_PATH,
-                        Environment.DIRECTORY_DOWNLOADS + "/ElectricPRO");
-                savedUri = getContentResolver().insert(
-                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                if (savedUri == null) throw new java.io.IOException("Не удалось создать PDF-файл");
-                output = getContentResolver().openOutputStream(savedUri);
-            } else {
-                File directory = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
-                if (directory == null) throw new java.io.IOException("Папка документов недоступна");
-                if (!directory.exists() && !directory.mkdirs()) {
-                    throw new java.io.IOException("Не удалось создать папку документов");
-                }
-                File file = new File(directory, fileName);
-                output = new FileOutputStream(file);
-            }
-
-            if (output == null) throw new java.io.IOException("Не удалось открыть PDF-файл");
-            document.writeTo(output);
-            output.close();
-            message("PDF-смета создана: " + fileName +
-                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                            ? "\nПапка: Загрузки/ElectricPRO" : "\nПапка документов приложения"));
-        } catch (Exception e) {
-            message("Не удалось создать PDF-смету: " + e.getMessage());
-        } finally {
-            document.close();
+            if(out==null)throw new java.io.IOException("Не удалось открыть PDF-файл");doc.writeTo(out);out.close();
+            message("PDF-смета создана: "+fileName+"\nРаботы: "+money(order.workTotal())+"\nМатериалы: "+money(order.materialTotal())+"\nИтого: "+money(order.total())+
+                (Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q?"\nПапка: Загрузки/ElectricPRO":"\nПапка документов приложения"));
+        }catch(Exception e){message("Не удалось создать PDF-смету: "+e.getMessage());}
+        finally{if(page!=null)try{doc.finishPage(page);}catch(Exception ignored){}doc.close();}
+    }
+    private int pdfHeader(Canvas c,Paint p,Order o,int left,int y){
+        p.setColor(navy);p.setTextSize(22);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));c.drawText("ЭЛЕКТРИК PRO",left,y,p);y+=28;
+        p.setColor(Color.rgb(30,60,90));p.setTextSize(17);c.drawText("СМЕТА НА РАБОТЫ И МАТЕРИАЛЫ",left,y,p);y+=28;
+        p.setColor(Color.BLACK);p.setTextSize(11);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.NORMAL));
+        c.drawText("Заказ: "+clipText(o.name,75),left,y,p);y+=18;c.drawText("Дата: "+new SimpleDateFormat("dd.MM.yyyy",Locale.getDefault()).format(new Date()),left,y,p);y+=18;
+        if(!o.executorDetails.isEmpty()){c.drawText("Исполнитель: "+clipText(o.executorDetails,75),left,y,p);y+=16;}
+        if(!o.customerDetails.isEmpty()){c.drawText("Заказчик: "+clipText(o.customerDetails,75),left,y,p);y+=16;}
+        if(!o.address.isEmpty()){c.drawText("Адрес: "+clipText(o.address,75),left,y,p);y+=16;}
+        y+=12;p.setTextSize(14);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));c.drawText("РАБОТЫ",left,y,p);y+=24;
+        return drawTableOnPage(c,p,o.works,left,553,y);
+    }
+    private int drawPdfLines(PdfDocument doc,PdfDocument.Page page,Canvas c,Paint p,Order o,List<Line> lines,boolean materials,int left,int right,int y,int pageNo){return y;}
+    private int drawTableOnPage(Canvas c,Paint p,List<Line> lines,int left,int right,int y){
+        p.setColor(Color.BLACK);p.setTextSize(10);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
+        c.drawText("№",left,y,p);c.drawText("Наименование",left+25,y,p);c.drawText("Кол-во",330,y,p);c.drawText("Цена",400,y,p);c.drawText("Сумма",475,y,p);y+=8;c.drawLine(left,y,right,y,p);y+=20;
+        p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.NORMAL));
+        for(int i=0;i<lines.size();i++){
+            if(y>760){p.setTextSize(9);c.drawText("Продолжение таблицы сметы см. в приложении.",left,y,p);break;}
+            Line l=lines.get(i);p.setTextSize(10);c.drawText(String.valueOf(i+1),left,y,p);c.drawText(clipText(l.name,35),left+25,y,p);
+            c.drawText(number(l.quantity),330,y,p);c.drawText(money(l.price),400,y,p);c.drawText(money(l.total()),475,y,p);y+=34;
+            p.setColor(Color.LTGRAY);c.drawLine(left,y-12,right,y-12,p);p.setColor(Color.BLACK);
         }
+        return y;
     }
-
-    private String pdfSafe(String value) {
-        if (value == null) return "";
-        return value.replace('\n', ' ').replace('\r', ' ');
-    }
-
-    private String clipText(String value, int max) {
-        String safe = pdfSafe(value);
-        if (safe.length() <= max) return safe;
-        return safe.substring(0, Math.max(1, max - 1)) + "…";
-    }
-
-    private String safeFileName(String value) {
-        String safe = pdfSafe(value).replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-        if (safe.isEmpty()) safe = "Smeta";
-        return safe.length() > 45 ? safe.substring(0, 45) : safe;
-    }
-
-    private void message(String message) {
-        new AlertDialog.Builder(this).setMessage(message).setPositiveButton("Понятно", null).show();
-    }
+    private String pdfSafe(String v){return v==null?"":v.replace('\n',' ').replace('\r',' ');}
+    private String clipText(String v,int max){String s=pdfSafe(v);return s.length()<=max?s:s.substring(0,Math.max(1,max-1))+"…";}
+    private String safeFileName(String v){String s=pdfSafe(v).replaceAll("[\\\\/:*?\"<>|]","_").trim();if(s.isEmpty())s="Smeta";return s.length()>45?s.substring(0,45):s;}
+    private void message(String message){new AlertDialog.Builder(this).setMessage(message).setPositiveButton("Понятно",null).show();}
 }
