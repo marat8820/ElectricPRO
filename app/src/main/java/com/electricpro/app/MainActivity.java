@@ -119,19 +119,17 @@ public class MainActivity extends Activity {
         TextView b = text(label, 16, navy, true); b.setGravity(Gravity.CENTER); b.setPadding(dp(12), dp(13), dp(12), dp(13)); b.setBackground(bg(yellow, 12));
         LinearLayout.LayoutParams p = lp(-1, -2); p.topMargin = dp(8); p.bottomMargin = dp(5); root.addView(b, p); b.setOnClickListener(v -> action.run());
     }
-    private void addGridCardRow(String i1, String t1, String d1, Runnable a1, String i2, String t2, String d2, Runnable a2) {
-        LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams p1 = new LinearLayout.LayoutParams(0, dp(132), 1); p1.rightMargin = dp(6);
-        LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(0, dp(132), 1); p2.leftMargin = dp(6);
-        row.addView(makeGridCard(i1,t1,d1,a1),p1); row.addView(makeGridCard(i2,t2,d2,a2),p2);
-        LinearLayout.LayoutParams rp = lp(-1,-2); rp.bottomMargin = dp(10); root.addView(row,rp);
-    }
+   addGridCardRow(
     private View makeGridCard(String icon, String title, String description, Runnable action) {
         LinearLayout c = column(); c.setGravity(Gravity.CENTER); c.setPadding(dp(10),dp(10),dp(10),dp(10)); c.setBackground(bg(panel,14));
         TextView iv=text(icon,28,yellow,true); iv.setGravity(Gravity.CENTER); c.addView(iv,lp(-1,38));
         TextView tv=text(title,15,white,true); tv.setGravity(Gravity.CENTER); c.addView(tv,lp(-1,-2));
         TextView dv=text(description,11,muted,false); dv.setGravity(Gravity.CENTER); dv.setPadding(0,dp(4),0,0); c.addView(dv,lp(-1,-2));
-        c.setOnClickListener(v -> action.run()); return c;
+       c.setOnClickListener(v -> {
+    if (action != null) {
+        action.run();
+    }
+}); return c;
     }
     private void infoCard(String title, String body) {
         LinearLayout c=column(); c.setPadding(dp(15),dp(14),dp(15),dp(14)); c.setBackground(bg(panel,13)); c.addView(text(title,16,white,true));
@@ -188,12 +186,12 @@ addGridCardRow(
 );
 addSpace(10);
 
-addGridCardRow(
-    "▤", "Редактор щита", "Компоновка, схема и проверка",
-    () -> panelEditor(),
-    "", "", "",
-    null
-);
+addView(makeGridCard(
+    "▤",
+    "Редактор щита",
+    "Компоновка, схема и проверка",
+    () -> panelEditor()
+), lp(-1, dp(130)));
 
 addSpace(20);
 
