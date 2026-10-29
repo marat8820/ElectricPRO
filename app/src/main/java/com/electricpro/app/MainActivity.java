@@ -561,35 +561,6 @@ private void panelScheme() {
     note.setPadding(0,dp(10),0,0);
     root.addView(note,lp(-1,-2));
 }
-private void panelScheme() {
-    page("Однолинейная схема", "Предварительный макет", true);
-
-    TextView diagram = text(
-        "ПИТАНИЕ 230 В\n" +
-        "     │\n" +
-        "[Вводной автомат]\n" +
-        "     │\n" +
-        "    [УЗО]\n" +
-        "     │\n" +
-        " ┌───┴───┐\n" +
-        " │       │\n" +
-        "[АВ 1]  [АВ 2]\n" +
-        " │       │\n" +
-        "Линия 1  Линия 2",
-        18, white, true
-    );
-    diagram.setGravity(Gravity.CENTER);
-    diagram.setPadding(dp(12), dp(24), dp(12), dp(24));
-    root.addView(diagram, lp(-1, -2));
-
-    TextView warning = text(
-        "Учебный макет, не готовый проект для монтажа.",
-        13, yellow, true
-    );
-    warning.setGravity(Gravity.CENTER);
-    root.addView(warning, lp(-1, -2));
-}
-
 private void panelAddEquipment() {
     showDeviceCatalog();
 }
