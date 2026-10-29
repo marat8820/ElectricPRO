@@ -348,7 +348,7 @@ private void addDeviceToBoard(String deviceName) {
     TextView empty = root.findViewWithTag("shield_empty");
 
     if (rail == null) {
-        toast("Сначала откройте редактор щита");
+        android.widget.Toast.makeText(this, "Сначала откройте редактор щита", android.widget.Toast.LENGTH_SHORT).show();
         return;
     }
 
