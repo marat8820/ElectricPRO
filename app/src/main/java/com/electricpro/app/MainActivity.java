@@ -337,7 +337,7 @@ public class MainActivity extends Activity {
         try {
             pageNo++;page=doc.startPage(new PdfDocument.PageInfo.Builder(W,H,pageNo).create());canvas=page.getCanvas();y=48;
             y=pdfHeader(canvas,p,order,left,y);
-            y=drawPdfLines(doc,page,canvas,p,order.works,false,left,right,y,pageNo);
+            y=drawPdfLines(doc,page,canvas,p,order,order.works,false,left,right,y,pageNo);
             // После возможного перехода страницы возвращаем текущую страницу/номер через отдельный универсальный рендер ниже.
             doc.finishPage(page);page=null;
             // Формируем отдельные аккуратные страницы для материалов и итогов, чтобы таблицы не обрезались.
