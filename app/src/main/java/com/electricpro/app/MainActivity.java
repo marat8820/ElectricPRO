@@ -192,6 +192,24 @@ addGridCardRow(
     "⚡", "Расширенные расчёты", "Дополнительные формулы",
     () -> advancedCalc()
 );
+ addSpace(10);
+
+    addGridCardRow(
+        "▣", "Мои заказы", "Заказы и работы",
+        () -> ordersPage(),
+        "⚡", "Расширенные расчёты", "Дополнительные формулы",
+        () -> advancedCalc()
+    );
+
+    addSpace(10);
+
+    addGridCardRow(
+        "▤", "Редактор щита", "Компоновка и схема",
+        () -> panelEditor(),
+        "✓", "Проверка проекта", "Подготовка к монтажу",
+        () -> panelEditor()
+    );
+
     addSpace(20);
 
     TextView f = text(
@@ -202,6 +220,120 @@ addGridCardRow(
     f.setPadding(dp(8), dp(12), dp(8), dp(20));
     root.addView(f, lp(-1, -2));
 }
+    
+private void panelEditor() {
+    page("Редактор щита", "Компоновка оборудования и схема", true);
+
+    TextView title = text("НОВЫЙ ЭЛЕКТРИЧЕСКИЙ ЩИТ", 20, yellow, true);
+    title.setGravity(Gravity.CENTER);
+    title.setPadding(dp(8), dp(16), dp(8), dp(12));
+    root.addView(title, lp(-1, -2));
+
+    TextView info = text(
+        "Выбери режим работы. Проект пока демонстрационный.",
+        14, white, false
+    );
+    info.setGravity(Gravity.CENTER);
+    info.setPadding(dp(8), 0, dp(8), dp(16));
+    root.addView(info, lp(-1, -2));
+
+    actionButton("▦  Компоновка щита", () -> panelLayout());
+    addSpace(10);
+
+    actionButton("⌁  Однолинейная схема", () -> panelScheme());
+    addSpace(10);
+
+    actionButton("＋  Добавить оборудование", () -> panelAddEquipment());
+    addSpace(10);
+
+    actionButton("▤  Список оборудования", () -> panelEquipmentList());
+}
+
+private void panelLayout() {
+    page("Компоновка щита", "Предварительное размещение на DIN-рейке", true);
+
+    TextView info = text(
+        "DIN-РЕЙКА\n\n[ Вводной автомат ]  [ УЗО ]  [ Автомат 1 ]\n\n" +
+        "Это макет. Оборудование пока нельзя перемещать пальцем.",
+        17, white, true
+    );
+    info.setGravity(Gravity.CENTER);
+    info.setPadding(dp(12), dp(30), dp(12), dp(30));
+    root.addView(info, lp(-1, -2));
+
+    actionButton("＋  Добавить оборудование", () -> panelAddEquipment());
+}
+
+private void panelScheme() {
+    page("Однолинейная схема", "Предварительный макет", true);
+
+    TextView diagram = text(
+        "ПИТАНИЕ 230 В\n" +
+        "     │\n" +
+        "[Вводной автомат]\n" +
+        "     │\n" +
+        "    [УЗО]\n" +
+        "     │\n" +
+        " ┌───┴───┐\n" +
+        " │       │\n" +
+        "[АВ 1]  [АВ 2]\n" +
+        " │       │\n" +
+        "Линия 1  Линия 2",
+        18, white, true
+    );
+    diagram.setGravity(Gravity.CENTER);
+    diagram.setPadding(dp(12), dp(24), dp(12), dp(24));
+    root.addView(diagram, lp(-1, -2));
+
+    TextView warning = text(
+        "Учебный макет, не готовый проект для монтажа.",
+        13, yellow, true
+    );
+    warning.setGravity(Gravity.CENTER);
+    root.addView(warning, lp(-1, -2));
+}
+
+private void panelAddEquipment() {
+    final String[] equipment = {
+        "Вводной автомат",
+        "Автоматический выключатель",
+        "УЗО",
+        "Дифавтомат",
+        "Контактор",
+        "Реле напряжения",
+        "Счётчик",
+        "Клеммник"
+    };
+
+    new android.app.AlertDialog.Builder(this)
+        .setTitle("Выбери оборудование")
+        .setItems(equipment, (dialog, which) -> {
+            android.widget.Toast.makeText(
+                this,
+                "Выбрано: " + equipment[which] +
+                ". Добавление в проект будет реализовано следующим шагом.",
+                android.widget.Toast.LENGTH_LONG
+            ).show();
+        })
+        .setNegativeButton("Отмена", null)
+        .show();
+}
+
+private void panelEquipmentList() {
+    page("Список оборудования", "Состав проекта", true);
+
+    TextView info = text(
+        "Пока оборудование не добавлено.\n\n" +
+        "Открой «Добавить оборудование», чтобы выбрать аппарат.",
+        16, white, false
+    );
+    info.setGravity(Gravity.CENTER);
+    info.setPadding(dp(12), dp(24), dp(12), dp(24));
+    root.addView(info, lp(-1, -2));
+
+    actionButton("＋  Добавить оборудование", () -> panelAddEquipment());
+}
+
     private void calc() {
         page("Калькулятор проводов","Ориентировочный расчёт электрической нагрузки",true);
         infoCard("Расчёт по току","Для однофазной нагрузки: I ≈ P / U. Для более точного расчёта учитывайте коэффициент мощности и тип нагрузки.");
